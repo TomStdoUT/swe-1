@@ -6,10 +6,10 @@ An interactive polling application where users create custom polls, stake points
 
 # Nariai
 
-Tomas Verseckas (Group leader)
-Tomas Paulius 
-Justinas Makauskas
-Matas Mikalauskas
+* Tomas Verseckas (Group leader)
+* Tomas Paulius 
+* Justinas Makauskas
+* Matas Mikalauskas
 
 ---
 
