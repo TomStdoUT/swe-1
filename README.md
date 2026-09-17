@@ -4,6 +4,15 @@ An interactive polling application where users create custom polls, stake points
 
 ---
 
+# Nariai
+
+Tomas Verseckas (Group leader)
+Tomas Paulius 
+Justinas Makauskas
+Matas Mikalauskas
+
+---
+
 ## Key Features
 
 * **Poll Creation & Tagging:** Set custom voting time limits with automated poll closing. Categorize polls by topics (Sports, Tech, Politics).
