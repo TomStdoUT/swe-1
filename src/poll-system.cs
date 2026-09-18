@@ -66,9 +66,55 @@ public class Poll : IEquatable<Poll>, IComparable<Poll>
         }
     }
     
+    public class PollManager : IEnumerable<Poll>
+    {
+        private readonly List<Poll> _polls = new();
+        public Poll CreatePoll(Guid creatorId, string question, List<PollOption> options, DateTime closingTime)
+        {
+            if(closingTime <= DateTime.UtcNow)
+            {
+                throw new ArgumentException("The closing time should be set in the future.");
+            }
 
+            if(options == null || options.Count < 2 || options.Count > 6)
+            {
+                throw new ArgumentException("A poll requires between 2 or 6 options.");
+            }
+
+            var poll = new Poll
+            {
+                CreatorId = creatorId,
+                Question = question,
+                Options = options,
+                ClosingTime = closingTime
+            };
+
+            _polls.Add(poll);
+            return poll;
+        }
+        
+        public IEnumerable<Poll> GetCreatorPolls(Guid creatorId)
+        {
+            return _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
+        }
+
+        public async Task SaveState(string filePath)
+        {
+            using FileStream stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await JsonSerializer.SerializeAsync(stream, _polls);
+        }
+
+        public IEnumerator<Poll> GetEnumerator()
+        {
+            foreach(var poll in _polls)
+            {
+                yield return poll;
+            }
+        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
     class Program
     {
-        
+     
     }
 }
