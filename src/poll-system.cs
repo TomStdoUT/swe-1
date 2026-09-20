@@ -64,6 +64,11 @@ public class Poll : IEquatable<Poll>, IComparable<Poll>
         _votes.Add(vote);
         
         }
+        public bool Equals(Poll? other) => other is not null && Id == other.Id;
+
+        public int CompareTo(Poll? other) => ClosingTime.CompareTo(other?.ClosingTime);
+    
+        public override int GetHashCode() => Id.GetHashCode();
     }
     
     public class PollManager : IEnumerable<Poll>
@@ -115,6 +120,43 @@ public class Poll : IEquatable<Poll>, IComparable<Poll>
     }
     class Program
     {
-     
+      static async Task Main()
+        {
+            // Poll system test
+            var manager = new PollManager();
+            var creatorId = Guid.NewGuid();
+            var voterId = Guid.NewGuid();
+
+            try
+            {
+                var poll = manager.CreatePoll(
+                    creatorId: creatorId,
+                    question: "Ar Tomas Saulius duhas?",
+                    options: new List<PollOption> { new("Taip"), new("Ne")},
+                    closingTime: DateTime.UtcNow.AddMinutes(5)
+                );
+                
+                Console.WriteLine("$[Success] Poll created with closing time: {poll.closingTime:0}");
+            
+                var creatorPolls = manager.GetCreatorPolls(creatorId);
+
+                var validVote = new Vote(voterId, optionIndex: 0, pointsBet: 50);
+                poll.CastVote(validVote);
+
+                poll.ClosingTime = DateTime.UtcNow.AddMinutes(-1);
+
+                Console.WriteLine($"Poll closed status: {poll.IsClosed()}");
+                var lateVote = new Vote(Guid.NewGuid(), 1);
+
+                poll.CastVote(lateVote);
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An exception has occured, due to late vote");
+            }
+            await manager.SaveState("poll_snapshot.json");
+            Console.WriteLine("\nState serialized to stream (poll_snapshot.json).");
+        }
     }
 }
