@@ -64,6 +64,8 @@ public class Poll : IEquatable<Poll>, IComparable<Poll>
         _votes.Add(vote);
         
         }
+        public bool Equals(Poll? other) => other != null && Id == other.Id;
+        public int CompareTo(Poll? other) => ClosingTime.CompareTo(other?.ClosingTime);
     }
     
     public class PollManager : IEnumerable<Poll>
@@ -115,6 +117,10 @@ public class Poll : IEquatable<Poll>, IComparable<Poll>
     }
     class Program
     {
-     
+        static void Main(string[] args)
+        {
+            var manager = new PollManager();
+            Console.WriteLine("Polling System initialized successfully.");
+        }
     }
 }
