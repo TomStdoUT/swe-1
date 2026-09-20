@@ -115,12 +115,63 @@ public class Poll : IEquatable<Poll>, IComparable<Poll>
         }
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
-    class Program
+
+    //team review please!
+   class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            var manager = new PollManager();
-            Console.WriteLine("Polling System initialized successfully.");
+            var postManager = new PostManager();
+            var pollManager = new PollManager();
+
+            // Load existing posts from file at startup
+            await postManager.LoadStateAsync("posts.json");
+
+            Console.WriteLine("=== Social Media & Polling System ===");
+
+            // Display existing feed from previous runs
+            Console.WriteLine("\n--- CURRENT FEED ---");
+            var currentFeed = postManager.GetFeed().ToList();
+            if (currentFeed.Count == 0)
+            {
+                Console.WriteLine("No posts yet.");
+            }
+            else
+            {
+                foreach (var post in currentFeed)
+                {
+                    Console.WriteLine($"[{post.CreatedAt:yyyy-MM-dd HH:mm}] {post.AuthorName}: {post.Content}");
+                }
+            }
+
+            // ask user for a new post
+            Console.WriteLine("\n--- CREATE A NEW POST ---");
+            Console.Write("Enter your name: ");
+            string? authorName = Console.ReadLine();
+
+            Console.Write("Write your post content: ");
+            string? content = Console.ReadLine();
+
+            if (!string.IsNullOrWhiteSpace(authorName) && !string.IsNullOrWhiteSpace(content))
+            {
+                var userId = Guid.NewGuid();
+                postManager.CreatePost(userId, authorName, content);
+
+                // Save posts to file
+                await postManager.SaveStateAsync("posts.json");
+                Console.WriteLine("\nPost created and saved successfully!");
+
+                // updated feed
+                Console.WriteLine("\n--- UPDATED FEED ---");
+                foreach (var post in postManager.GetFeed())
+                {
+                    Console.WriteLine($"[{post.CreatedAt:yyyy-MM-dd HH:mm}] {post.AuthorName}: {post.Content}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Error: Name and content cannot be empty.");
+            }
         }
     }
 }
