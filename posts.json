@@ -1,0 +1,23 @@
+[
+  {
+    "Id": "145818be-65f6-4996-afc4-4d4f0c9665e0",
+    "AuthorId": "040447b4-b12a-4206-b0da-db7945a64872",
+    "AuthorName": "Tomas",
+    "Content": "First post, testing",
+    "CreatedAt": "2026-09-20T14:17:35.5981608Z"
+  },
+  {
+    "Id": "fecb7c41-d4d2-4c56-a4e7-f8b76c6bb077",
+    "AuthorId": "a607f4d8-b793-4d47-b52c-f69c67b24db2",
+    "AuthorName": "Domas",
+    "Content": "posting again to test",
+    "CreatedAt": "2026-09-20T14:18:18.4862456Z"
+  },
+  {
+    "Id": "8f22b7b6-d4e7-4a8a-9f71-df90a56f43fa",
+    "AuthorId": "46e97b19-7c86-462a-a667-ece7b6a2fe7b",
+    "AuthorName": "Timas",
+    "Content": "WHAAAA",
+    "CreatedAt": "2026-09-20T14:18:32.9838301Z"
+  }
+]

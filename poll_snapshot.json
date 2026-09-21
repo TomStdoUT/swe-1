@@ -1,0 +1,23 @@
+[
+  {
+    "Id": "ecc50767-c517-4268-976f-35a052ddc6e4",
+    "CreatorId": "c21fecae-d2e0-4a6f-8f2f-5afb9c26d1c5",
+    "Question": "Ar Tomas Saulius duhas?",
+    "Options": [
+      {
+        "text": "Taip"
+      },
+      {
+        "text": "Ne"
+      }
+    ],
+    "ClosingTime": "2026-09-20T20:34:23.4889462Z",
+    "Votes": [
+      {
+        "UserId": "6c507ffd-2697-4895-9daf-ae5aea026ffb",
+        "OptionIndex": 0,
+        "BettedPoints": 50
+      }
+    ]
+  }
+]
