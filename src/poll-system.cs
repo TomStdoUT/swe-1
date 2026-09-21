@@ -124,7 +124,7 @@ namespace PollSystem.Domain
             {
                 var poll = manager.CreatePoll(
                     creatorId: creatorId,
-                    question: "Ar Tomas Saulius duhas?",
+                    question: "Ar C# gera kalba?",
                     options: new List<PollOption> { new("Taip"), new("Ne") },
                     closingTime: DateTime.UtcNow.AddMinutes(5)
                 );

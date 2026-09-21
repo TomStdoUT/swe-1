@@ -1,0 +1,23 @@
+[
+  {
+    "Id": "859df3f3-aede-404c-8c37-6ae4508a4714",
+    "CreatorId": "ede8b869-4d07-4ffa-afa8-25801f3687e9",
+    "Question": "Ar C# gera kalba?",
+    "Options": [
+      {
+        "text": "Taip"
+      },
+      {
+        "text": "Ne"
+      }
+    ],
+    "ClosingTime": "2026-09-21T11:27:02.393863Z",
+    "Votes": [
+      {
+        "UserId": "b92cd717-5ec3-42bb-8773-c1f4f3a22024",
+        "OptionIndex": 0,
+        "BettedPoints": 50
+      }
+    ]
+  }
+]
