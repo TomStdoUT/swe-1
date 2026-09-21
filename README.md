@@ -7,7 +7,7 @@ An interactive polling application where users create custom polls, stake points
 # Nariai
 
 * Tomas Verseckas (Group leader)
-* Tomas Paulius 
+* Tomas Saulius 
 * Justinas Makauskas
 * Matas Mikalauskas
 
