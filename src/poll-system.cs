@@ -8,11 +8,10 @@ using System.Threading.Tasks;
 
 namespace PollSystem.Domain
 {
-
-    //Tomas V part from poll-system branch
-
+    // Record representing a poll choice
     public record PollOption(string text);
 
+    // Readonly struct representing a vote
     public readonly struct Vote
     {
         public Guid UserId { get; }
@@ -27,6 +26,7 @@ namespace PollSystem.Domain
         }
     }
 
+    // Extension method to check if a poll's time limit has expired
     public static class PollExtension
     {
         public static bool IsClosed(this Poll poll)
@@ -35,6 +35,7 @@ namespace PollSystem.Domain
         }
     }
 
+    // Poll Domain Model supporting custom time limits
     public class Poll : IEquatable<Poll>, IComparable<Poll>
     {
         public Guid Id { get; init; } = Guid.NewGuid();
@@ -42,6 +43,7 @@ namespace PollSystem.Domain
         public string Question { get; set; } = string.Empty;
         public List<PollOption> Options { get; set; } = new();
         public DateTime ClosingTime { get; set; }
+        public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
@@ -59,15 +61,17 @@ namespace PollSystem.Domain
             }
 
             _votes.Add(vote);
-            
         }
+
         public bool Equals(Poll? other) => other != null && Id == other.Id;
         public int CompareTo(Poll? other) => ClosingTime.CompareTo(other?.ClosingTime);
     }
 
+    // PollManager handling timed poll creation & state persistence
     public class PollManager : IEnumerable<Poll>
     {
         private readonly List<Poll> _polls = new();
+
         public Poll CreatePoll(Guid creatorId, string question, List<PollOption> options, DateTime closingTime)
         {
             if (closingTime <= DateTime.UtcNow)
@@ -77,7 +81,7 @@ namespace PollSystem.Domain
 
             if (options == null || options.Count < 2 || options.Count > 6)
             {
-                throw new ArgumentException("A poll requires between 2 or 6 options.");
+                throw new ArgumentException("A poll requires between 2 and 6 options.");
             }
 
             var poll = new Poll
@@ -97,7 +101,7 @@ namespace PollSystem.Domain
             return _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
         }
 
-        public async Task SaveStateAsync(string filePath = "polls.json")
+        public async Task SaveStateAsync(string filePath = "poll_snapshot.json")
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             using FileStream stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -108,101 +112,36 @@ namespace PollSystem.Domain
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
-    //poll-system branch ends HERE
-    
-
-   class Program
+    class Program
     {
         static async Task Main(string[] args)
         {
-            //from poll-systems branch
+            Console.WriteLine("=== Testing Issue #2: Create Timed Poll ===");
+
             var manager = new PollManager();
             var creatorId = Guid.NewGuid();
             var voterId = Guid.NewGuid();
 
-            try
-            {
-                var poll = manager.CreatePoll(
-                    creatorId: creatorId,
-                    question: "Ar C# gera kalba?",
-                    options: new List<PollOption> { new("Taip"), new("Ne") },
-                    closingTime: DateTime.UtcNow.AddMinutes(5)
-                );
+            // 1. Create a poll with a 5-minute duration limit
+            var poll = manager.CreatePoll(
+                creatorId: creatorId,
+                question: "Which feature should we build next?",
+                options: new List<PollOption> { new("Dark Mode"), new("Export Stats"), new("Live Chat") },
+                closingTime: DateTime.UtcNow.AddMinutes(5)
+            );
 
-                Console.WriteLine($"[Success] Poll created with closing time: {poll.ClosingTime}");
+            Console.WriteLine($"[Created] Poll ID: {poll.Id}");
+            Console.WriteLine($"[Question] {poll.Question}");
+            Console.WriteLine($"[Closing Time] {poll.ClosingTime.ToLocalTime()} (Is Closed: {poll.IsClosed()})");
 
-                var creatorPolls = manager.GetCreatorPolls(creatorId);
+            // 2. Cast a valid vote while active
+            var validVote = new Vote(voterId, optionIndex: 0, pointsBet: 100);
+            poll.CastVote(validVote);
+            Console.WriteLine("[Success] Vote cast successfully.");
 
-                var validVote = new Vote(voterId, optionIndex: 0, pointsBet: 50);
-                poll.CastVote(validVote);
-
-                poll.ClosingTime = DateTime.UtcNow.AddMinutes(-1);
-
-                Console.WriteLine($"Poll closed status: {poll.IsClosed()}");
-                var lateVote = new Vote(Guid.NewGuid(), 1);
-
-                poll.CastVote(lateVote);
-            }
-            catch (Exception)
-            {
-                Console.WriteLine("An exception has occured, due to late vote");
-            }
+            // 3. Save state to JSON snapshot
             await manager.SaveStateAsync("poll_snapshot.json");
-            Console.WriteLine("\nState serialized to stream (poll_snapshot.json).\n");
-
-            //poll system branch ends here
-            
-            var postManager = new PostManager();
-            var pollManager = new PollManager();
-
-            // Load existing posts from file at startup
-            await postManager.LoadStateAsync("posts.json");
-
-            Console.WriteLine("=== Social Media & Polling System ===");
-
-            // Display existing feed from previous runs
-            Console.WriteLine("\n--- CURRENT FEED ---");
-            var currentFeed = postManager.GetFeed().ToList();
-            if (currentFeed.Count == 0)
-            {
-                Console.WriteLine("No posts yet.");
-            }
-            else
-            {
-                foreach (var post in currentFeed)
-                {
-                    Console.WriteLine($"[{post.CreatedAt:yyyy-MM-dd HH:mm}] {post.AuthorName}: {post.Content}");
-                }
-            }
-
-            // ask user for a new post
-            Console.WriteLine("\n--- CREATE A NEW POST ---");
-            Console.Write("Enter your name: ");
-            string? authorName = Console.ReadLine();
-
-            Console.Write("Write your post content: ");
-            string? content = Console.ReadLine();
-
-            if (!string.IsNullOrWhiteSpace(authorName) && !string.IsNullOrWhiteSpace(content))
-            {
-                var userId = Guid.NewGuid();
-                postManager.CreatePost(userId, authorName, content);
-
-                // Save posts to file
-                await postManager.SaveStateAsync("posts.json");
-                Console.WriteLine("\nPost created and saved successfully!");
-
-                // updated feed
-                Console.WriteLine("\n--- UPDATED FEED ---");
-                foreach (var post in postManager.GetFeed())
-                {
-                    Console.WriteLine($"[{post.CreatedAt:yyyy-MM-dd HH:mm}] {post.AuthorName}: {post.Content}");
-                }
-            }
-            else
-            {
-                Console.WriteLine("Error: Name and content cannot be empty.");
-            }
+            Console.WriteLine("[Success] Saved state to poll_snapshot.json.");
         }
     }
 }
