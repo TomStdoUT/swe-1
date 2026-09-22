@@ -144,4 +144,4 @@ namespace PollSystem.Domain
             Console.WriteLine("[Success] Saved state to poll_snapshot.json.");
         }
     }
-}
+}git 
