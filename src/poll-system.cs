@@ -5,9 +5,34 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PollSystem.Domain
 {
+
+    // Represents a user with points
+    public class User
+    {
+        public Guid Id { get; init; } = Guid.NewGuid();
+        public string Username { get; set; } = string.Empty;
+        public int PointsBalance { get; set; } = 100; // Default starting balance
+
+        public User() { }
+
+        public User(string username, int initialPoints = 100)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                throw new ArgumentException("Username cannot be empty.", nameof(username));
+            }
+
+            Username = username;
+            PointsBalance = initialPoints;
+        }
+    }
+
+
     // Record representing a poll choice
     public record PollOption(string text);
 
@@ -48,7 +73,7 @@ namespace PollSystem.Domain
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
 
-        public void CastVote(Vote vote)
+        public void CastVote(User user, Vote vote)
         {
             if (this.IsClosed())
             {
@@ -58,6 +83,16 @@ namespace PollSystem.Domain
             if (vote.OptionIndex < 0 || vote.OptionIndex >= Options.Count)
             {
                 throw new ArgumentOutOfRangeException(nameof(vote.OptionIndex), "Option doesn't exist, invalid option selected.");
+            }
+
+            if (vote.BettedPoints > 0)
+            {
+                if (user.PointsBalance < vote.BettedPoints)
+                {
+                    throw new InvalidOperationException("Insufficient points balance to place this bet.");
+                }
+
+                user.PointsBalance -= vote.BettedPoints;
             }
 
             _votes.Add(vote);
@@ -114,34 +149,47 @@ namespace PollSystem.Domain
 
     class Program
     {
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
-            Console.WriteLine("=== Testing Issue #2: Create Timed Poll ===");
+            var builder = WebApplication.CreateBuilder(args);
 
+            // Cors so react can comunicate with backend
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+            });
+
+            var app = builder.Build();
+            app.UseCors();
+
+            // Storing app state in mem
             var manager = new PollManager();
-            var creatorId = Guid.NewGuid();
-            var voterId = Guid.NewGuid();
+            var currentUser = new User("Povias", 100);
 
-            // 1. Create a poll with a 5-minute duration limit
-            var poll = manager.CreatePoll(
-                creatorId: creatorId,
-                question: "Which feature should we build next?",
-                options: new List<PollOption> { new("Dark Mode"), new("Export Stats"), new("Live Chat") },
-                closingTime: DateTime.UtcNow.AddMinutes(5)
-            );
+            // API endpoint to get the points balance
+            app.MapGet("/api/user", () => new { currentUser.Username, currentUser.PointsBalance });
 
-            Console.WriteLine($"[Created] Poll ID: {poll.Id}");
-            Console.WriteLine($"[Question] {poll.Question}");
-            Console.WriteLine($"[Closing Time] {poll.ClosingTime.ToLocalTime()} (Is Closed: {poll.IsClosed()})");
+            // API endpoint for poll creation point withdrawal
+            app.MapPost("/api/polls", (PollCreateDto dto) =>
+            {
+                if (dto.BettedPoints > currentUser.PointsBalance)
+                {
+                    return Results.BadRequest(new { error = "Neturite pakankamai taškų!" });
+                }
 
-            // 2. Cast a valid vote while active
-            var validVote = new Vote(voterId, optionIndex: 0, pointsBet: 100);
-            poll.CastVote(validVote);
-            Console.WriteLine("[Success] Vote cast successfully.");
+                currentUser.PointsBalance -= dto.BettedPoints;
 
-            // 3. Save state to JSON snapshot
-            await manager.SaveStateAsync("poll_snapshot.json");
-            Console.WriteLine("[Success] Saved state to poll_snapshot.json.");
+                return Results.Ok(new { 
+                    message = "Apklausa sukurta sėkmingai!", 
+                    remainingPoints = currentUser.PointsBalance 
+                });
+            });
+
+            app.Run("http://localhost:5000");
         }
     }
-}git 
+
+    // Data transfer object for requests from react
+    public record PollCreateDto(string Question, string Category, List<string> Tags, int BettedPoints);
+}
