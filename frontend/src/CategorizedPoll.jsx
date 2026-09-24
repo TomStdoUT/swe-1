@@ -187,6 +187,8 @@ setIsSubmitting(true);
 
       <button type="submit" style={{ padding: '10px 15px', marginTop: '10px' }}>
         Išsaugoti apklausą
+      <button type="submit" disabled={isSubmitting} style={{ padding: '10px 15px', marginTop: '10px' }}>
+        {isSubmitting ? 'Išsaugoma...' : 'Išsaugoti apklausą'}
       </button>
     </form>
   );
