@@ -1,0 +1,27 @@
+[
+  {
+    "Id": "e5777090-00a1-433a-bde8-99369a0470c3",
+    "CreatorId": "b74f6575-23c0-4d39-82a4-91e37b9b60fe",
+    "Question": "Which feature should we build next?",
+    "Options": [
+      {
+        "text": "Dark Mode"
+      },
+      {
+        "text": "Export Stats"
+      },
+      {
+        "text": "Live Chat"
+      }
+    ],
+    "ClosingTime": "2026-09-23T21:13:36.6167007Z",
+    "CreatedAt": "2026-09-23T21:08:36.6175075Z",
+    "Votes": [
+      {
+        "UserId": "4eb7f4b4-62f6-4642-96f3-8ec455d6e61e",
+        "OptionIndex": 0,
+        "BettedPoints": 100
+      }
+    ]
+  }
+]

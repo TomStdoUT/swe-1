@@ -5,14 +5,38 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace PollSystem.Domain
 {
 
-    //Tomas V part from poll-system branch
+    // Represents a user with points
+    public class User
+    {
+        public Guid Id { get; init; } = Guid.NewGuid();
+        public string Username { get; set; } = string.Empty;
+        public int PointsBalance { get; set; } = 100; // Default starting balance
 
+        public User() { }
+
+        public User(string username, int initialPoints = 100)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                throw new ArgumentException("Username cannot be empty.", nameof(username));
+            }
+
+            Username = username;
+            PointsBalance = initialPoints;
+        }
+    }
+
+
+    // Record representing a poll choice
     public record PollOption(string text);
 
+    // Readonly struct representing a vote
     public readonly struct Vote
     {
         public Guid UserId { get; }
@@ -27,6 +51,7 @@ namespace PollSystem.Domain
         }
     }
 
+    // Extension method to check if a poll's time limit has expired
     public static class PollExtension
     {
         public static bool IsClosed(this Poll poll)
@@ -35,18 +60,22 @@ namespace PollSystem.Domain
         }
     }
 
+    // Poll Domain Model supporting custom time limits
     public class Poll : IEquatable<Poll>, IComparable<Poll>
     {
         public Guid Id { get; init; } = Guid.NewGuid();
         public Guid CreatorId { get; init; }
         public string Question { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public List<string> Tags { get; set; } = new();
         public List<PollOption> Options { get; set; } = new();
         public DateTime ClosingTime { get; set; }
+        public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
 
-        public void CastVote(Vote vote)
+        public void CastVote(User user, Vote vote)
         {
             if (this.IsClosed())
             {
@@ -58,16 +87,28 @@ namespace PollSystem.Domain
                 throw new ArgumentOutOfRangeException(nameof(vote.OptionIndex), "Option doesn't exist, invalid option selected.");
             }
 
+            if (vote.BettedPoints > 0)
+            {
+                if (user.PointsBalance < vote.BettedPoints)
+                {
+                    throw new InvalidOperationException("Insufficient points balance to place this bet.");
+                }
+
+                user.PointsBalance -= vote.BettedPoints;
+            }
+
             _votes.Add(vote);
-            
         }
+
         public bool Equals(Poll? other) => other != null && Id == other.Id;
         public int CompareTo(Poll? other) => ClosingTime.CompareTo(other?.ClosingTime);
     }
 
+    // PollManager handling timed poll creation & state persistence
     public class PollManager : IEnumerable<Poll>
     {
         private readonly List<Poll> _polls = new();
+
         public Poll CreatePoll(Guid creatorId, string question, List<PollOption> options, DateTime closingTime)
         {
             if (closingTime <= DateTime.UtcNow)
@@ -77,7 +118,7 @@ namespace PollSystem.Domain
 
             if (options == null || options.Count < 2 || options.Count > 6)
             {
-                throw new ArgumentException("A poll requires between 2 or 6 options.");
+                throw new ArgumentException("A poll requires between 2 and 6 options.");
             }
 
             var poll = new Poll
@@ -97,7 +138,7 @@ namespace PollSystem.Domain
             return _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
         }
 
-        public async Task SaveStateAsync(string filePath = "polls.json")
+        public async Task SaveStateAsync(string filePath = "poll_snapshot.json")
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             using FileStream stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -108,101 +149,61 @@ namespace PollSystem.Domain
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
-    //poll-system branch ends HERE
-    
-
-   class Program
+    class Program
     {
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
-            //from poll-systems branch
+            var builder = WebApplication.CreateBuilder(args);
+
+            // Cors so react can comunicate with backend
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+            });
+
+            var app = builder.Build();
+            app.UseCors();
+
+            // Storing app state in mem
             var manager = new PollManager();
-            var creatorId = Guid.NewGuid();
-            var voterId = Guid.NewGuid();
+            var currentUser = new User("Povias", 100);
 
-            try
+            // API endpoint to get the points balance
+            app.MapGet("/api/user", () => new { currentUser.Username, currentUser.PointsBalance });
+
+            // API endpoint for poll creation point withdrawal
+            app.MapPost("/api/polls", (PollCreateDto dto) =>
             {
-                var poll = manager.CreatePoll(
-                    creatorId: creatorId,
-                    question: "Ar C# gera kalba?",
-                    options: new List<PollOption> { new("Taip"), new("Ne") },
-                    closingTime: DateTime.UtcNow.AddMinutes(5)
+                if (dto.BettedPoints > currentUser.PointsBalance)
+                {
+                    return Results.BadRequest(new { error = "Neturite pakankamai taškų!" });
+                }
+
+                currentUser.PointsBalance -= dto.BettedPoints;
+
+                // FIX: Create the poll using the data from the React frontend
+                var newPoll = manager.CreatePoll(
+                    currentUser.Id,
+                    dto.Question,
+                    dto.Category,
+                    dto.Tags,
+                    dto.Options.Select(opt => new PollOption(opt)).ToList(),
+                    DateTime.UtcNow.AddDays(1)
                 );
+                
+                // FIX: Save the state to the JSON file
+                await manager.SaveStateAsync();
+                return Results.Ok(new { 
+                    message = "Apklausa sukurta sėkmingai!", 
+                    remainingPoints = currentUser.PointsBalance 
+                });
+            });
 
-                Console.WriteLine($"[Success] Poll created with closing time: {poll.ClosingTime}");
-
-                var creatorPolls = manager.GetCreatorPolls(creatorId);
-
-                var validVote = new Vote(voterId, optionIndex: 0, pointsBet: 50);
-                poll.CastVote(validVote);
-
-                poll.ClosingTime = DateTime.UtcNow.AddMinutes(-1);
-
-                Console.WriteLine($"Poll closed status: {poll.IsClosed()}");
-                var lateVote = new Vote(Guid.NewGuid(), 1);
-
-                poll.CastVote(lateVote);
-            }
-            catch (Exception)
-            {
-                Console.WriteLine("An exception has occured, due to late vote");
-            }
-            await manager.SaveStateAsync("poll_snapshot.json");
-            Console.WriteLine("\nState serialized to stream (poll_snapshot.json).\n");
-
-            //poll system branch ends here
-            
-            var postManager = new PostManager();
-            var pollManager = new PollManager();
-
-            // Load existing posts from file at startup
-            await postManager.LoadStateAsync("posts.json");
-
-            Console.WriteLine("=== Social Media & Polling System ===");
-
-            // Display existing feed from previous runs
-            Console.WriteLine("\n--- CURRENT FEED ---");
-            var currentFeed = postManager.GetFeed().ToList();
-            if (currentFeed.Count == 0)
-            {
-                Console.WriteLine("No posts yet.");
-            }
-            else
-            {
-                foreach (var post in currentFeed)
-                {
-                    Console.WriteLine($"[{post.CreatedAt:yyyy-MM-dd HH:mm}] {post.AuthorName}: {post.Content}");
-                }
-            }
-
-            // ask user for a new post
-            Console.WriteLine("\n--- CREATE A NEW POST ---");
-            Console.Write("Enter your name: ");
-            string? authorName = Console.ReadLine();
-
-            Console.Write("Write your post content: ");
-            string? content = Console.ReadLine();
-
-            if (!string.IsNullOrWhiteSpace(authorName) && !string.IsNullOrWhiteSpace(content))
-            {
-                var userId = Guid.NewGuid();
-                postManager.CreatePost(userId, authorName, content);
-
-                // Save posts to file
-                await postManager.SaveStateAsync("posts.json");
-                Console.WriteLine("\nPost created and saved successfully!");
-
-                // updated feed
-                Console.WriteLine("\n--- UPDATED FEED ---");
-                foreach (var post in postManager.GetFeed())
-                {
-                    Console.WriteLine($"[{post.CreatedAt:yyyy-MM-dd HH:mm}] {post.AuthorName}: {post.Content}");
-                }
-            }
-            else
-            {
-                Console.WriteLine("Error: Name and content cannot be empty.");
-            }
+            app.Run("http://localhost:5000");
         }
     }
+
+    // Data transfer object for requests from react
+    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int BettedPoints);
 }
