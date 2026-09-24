@@ -7,6 +7,7 @@ export function CategorizedPoll() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState([]);
+  const [options, setOptions] = useState(['', '']); // Enforce minimum 2 options
   const [userPoints, setUserPoints] = useState(100);
   const [pointsBet, setPointsBet] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
