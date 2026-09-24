@@ -98,6 +98,32 @@ export function CategorizedPoll() {
       </div>
 
       <div style={{ marginBottom: '10px' }}>
+        <label>Variantai (2 - 6):</label>
+        {options.map((opt, index) => (
+          <div key={index} style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+            <input
+              type="text"
+              value={opt}
+              onChange={(e) => {
+                const newOpts = [...options];
+                newOpts[index] = e.target.value;
+                setOptions(newOpts);
+              }}
+              required
+              placeholder={`Variantas ${index + 1}`}
+              style={{ flex: 1, padding: '8px' }}
+            />
+            {options.length > 2 && (
+              <button type="button" onClick={() => setOptions(options.filter((_, i) => i !== index))}>X</button>
+            )}
+          </div>
+        ))}
+        {options.length < 6 && (
+          <button type="button" onClick={() => setOptions([...options, ''])} style={{ marginTop: '5px' }}>+ Pridėti variantą</button>
+        )}
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
         <label>Kategorija:</label>
         <select
           value={category}
