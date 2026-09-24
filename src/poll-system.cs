@@ -109,7 +109,7 @@ namespace PollSystem.Domain
     {
         private readonly List<Poll> _polls = new();
 
-        public Poll CreatePoll(Guid creatorId, string question, List<PollOption> options, DateTime closingTime)
+        public Poll CreatePoll(Guid creatorId, string question, string category, List<string> tags, List<PollOption> options, DateTime closingTime)
         {
             if (closingTime <= DateTime.UtcNow)
             {
@@ -173,7 +173,7 @@ namespace PollSystem.Domain
             app.MapGet("/api/user", () => new { currentUser.Username, currentUser.PointsBalance });
 
             // API endpoint for poll creation point withdrawal
-            app.MapPost("/api/polls", (PollCreateDto dto) =>
+            app.MapPost("/api/polls", async (PollCreateDto dto) =>
             {
                 if (dto.BettedPoints > currentUser.PointsBalance)
                 {
