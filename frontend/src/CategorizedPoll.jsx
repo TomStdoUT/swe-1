@@ -9,6 +9,7 @@ export function CategorizedPoll() {
   const [tags, setTags] = useState([]);
   const [userPoints, setUserPoints] = useState(100);
   const [pointsBet, setPointsBet] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch initial user points from backend on load
   useEffect(() => {
