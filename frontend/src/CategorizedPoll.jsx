@@ -41,11 +41,11 @@ export function CategorizedPoll() {
       alert('Insuficient points balance!');
       return;
     }
-
     const pollData = {
       question,
       category,
       tags,
+      options,
       bettedPoints: pointsBet,
     };
 setIsSubmitting(true);
