@@ -182,6 +182,18 @@ namespace PollSystem.Domain
 
                 currentUser.PointsBalance -= dto.BettedPoints;
 
+                // FIX: Create the poll using the data from the React frontend
+                var newPoll = manager.CreatePoll(
+                    currentUser.Id,
+                    dto.Question,
+                    dto.Category,
+                    dto.Tags,
+                    dto.Options.Select(opt => new PollOption(opt)).ToList(),
+                    DateTime.UtcNow.AddDays(1)
+                );
+                
+                // FIX: Save the state to the JSON file
+                await manager.SaveStateAsync();
                 return Results.Ok(new { 
                     message = "Apklausa sukurta sėkmingai!", 
                     remainingPoints = currentUser.PointsBalance 
