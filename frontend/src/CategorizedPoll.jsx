@@ -75,7 +75,10 @@ setIsSubmitting(true);
     } catch (error) {
       console.error('Failed to connect to backend:', error);
       alert('Could not connect to backend server.');
+    } finally {
+      setIsSubmitting(false);
     }
+
   };
 
   return (
