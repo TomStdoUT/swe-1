@@ -205,5 +205,5 @@ namespace PollSystem.Domain
     }
 
     // Data transfer object for requests from react
-    public record PollCreateDto(string Question, string Category, List<string> Tags, int BettedPoints);
+    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int BettedPoints);
 }
