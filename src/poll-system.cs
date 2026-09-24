@@ -66,6 +66,8 @@ namespace PollSystem.Domain
         public Guid Id { get; init; } = Guid.NewGuid();
         public Guid CreatorId { get; init; }
         public string Question { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public List<string> Tags { get; set; } = new();
         public List<PollOption> Options { get; set; } = new();
         public DateTime ClosingTime { get; set; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
