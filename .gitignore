@@ -2,3 +2,8 @@
 
 bin/
 obj/
+
+# Local databases
+poll_snapshot.json
+posts.json
+
