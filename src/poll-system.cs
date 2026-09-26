@@ -167,10 +167,36 @@ namespace PollSystem.Domain
 
             // Storing app state in mem
             var manager = new PollManager();
-            var currentUser = new User("Povias", 100);
+            User currentUser = new User("Povias", 100);
+            var postManager = new PostManager();
+
+            app.MapPost("/api/login", (LoginDto dto) =>
+            {
+                if (string.IsNullOrWhiteSpace(dto.Username) || dto.Username.Trim().Length > 40)
+                {
+                    return Results.BadRequest(new { error = "Enter a username of 1 to 40 characters." });
+                }
+
+                currentUser = new User(dto.Username.Trim());
+                return Results.Ok(new { currentUser.Username, currentUser.PointsBalance });
+            });
 
             // API endpoint to get the points balance
             app.MapGet("/api/user", () => new { currentUser.Username, currentUser.PointsBalance });
+
+            // Posts always take their author from the signed-in demo user, not the submitted form data.
+            app.MapGet("/api/posts", () => postManager.GetFeed());
+            app.MapPost("/api/posts", async (PostCreateDto dto) =>
+            {
+                if (string.IsNullOrWhiteSpace(dto.Content))
+                {
+                    return Results.BadRequest(new { error = "Post content cannot be empty." });
+                }
+
+                var post = postManager.CreatePost(currentUser.Id, currentUser.Username, dto.Content.Trim());
+                await postManager.SaveStateAsync();
+                return Results.Ok(post);
+            });
 
             // API endpoint for poll creation point withdrawal
             app.MapPost("/api/polls", async (PollCreateDto dto) =>
@@ -200,10 +226,12 @@ namespace PollSystem.Domain
                 });
             });
 
-            app.Run("http://localhost:5000");
+            app.Run("http://127.0.0.1:5000");
         }
     }
 
     // Data transfer object for requests from react
     public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int BettedPoints);
+    public record LoginDto(string Username, string? Password = null);
+    public record PostCreateDto(string Content);
 }

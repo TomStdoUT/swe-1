@@ -14,7 +14,7 @@ export function CategorizedPoll() {
 
   // Fetch initial user points from backend on load
   useEffect(() => {
-    fetch('http://localhost:5000/api/user')
+    fetch('/api/user')
       .then((res) => res.json())
       .then((data) => {
         if (data.pointsBalance !== undefined) {
@@ -49,10 +49,10 @@ export function CategorizedPoll() {
       options,
       bettedPoints: pointsBet,
     };
-setIsSubmitting(true);
+    setIsSubmitting(true);
     try {
       // Send POST request to web API
-      const response = await fetch('http://localhost:5000/api/polls', {
+      const response = await fetch('/api/polls', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +72,9 @@ setIsSubmitting(true);
       setUserPoints(result.remainingPoints);
       setPointsBet(0);
 
-      alert(`Poll created successfully! Staked: ${pointsBet}. Remaining balance: ${result.remainingPoints}`);
+      alert(
+        `Poll created successfully! Staked: ${pointsBet}. Remaining balance: ${result.remainingPoints}`,
+      );
     } catch (error) {
       console.error('Failed to connect to backend:', error);
       alert('Could not connect to backend server.');
