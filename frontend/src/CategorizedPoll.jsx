@@ -42,10 +42,17 @@ export function CategorizedPoll() {
       alert('Insuficient points balance!');
       return;
     }
+
+   const finalTags = [...tags];
+    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+      finalTags.push(tagInput.trim());
+      setTagInput(''); 
+    }
+
     const pollData = {
       question,
       category,
-      tags,
+      tags: finalTags,
       options,
       bettedPoints: pointsBet,
     };
@@ -152,6 +159,12 @@ export function CategorizedPoll() {
             type="text"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAddTag();
+              }
+            }}
             placeholder="Įveskite žymą"
             style={{ flex: 1, padding: '8px' }}
           />
