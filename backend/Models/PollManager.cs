@@ -125,6 +125,8 @@ namespace PollSystem.Domain
             {
                 CreatorId = creatorId,
                 Question = question,
+                Category = category,
+                Tags = tags,
                 Options = options,
                 ClosingTime = closingTime
             };
@@ -147,87 +149,6 @@ namespace PollSystem.Domain
 
         public IEnumerator<Poll> GetEnumerator() => _polls.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-    }
-
-    class Program
-    {
-        static void Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
-
-            // Cors so react can comunicate with backend
-            builder.Services.AddCors(options =>
-            {
-                options.AddDefaultPolicy(policy =>
-                    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
-            });
-
-            var app = builder.Build();
-            app.UseCors();
-
-            // Storing app state in mem
-            var manager = new PollManager();
-            User currentUser = new User("Povias", 100);
-            var postManager = new PostManager();
-
-            app.MapPost("/api/login", (LoginDto dto) =>
-            {
-                if (string.IsNullOrWhiteSpace(dto.Username) || dto.Username.Trim().Length > 40)
-                {
-                    return Results.BadRequest(new { error = "Enter a username of 1 to 40 characters." });
-                }
-
-                currentUser = new User(dto.Username.Trim());
-                return Results.Ok(new { currentUser.Username, currentUser.PointsBalance });
-            });
-
-            // API endpoint to get the points balance
-            app.MapGet("/api/user", () => new { currentUser.Username, currentUser.PointsBalance });
-
-            // Posts always take their author from the signed-in demo user, not the submitted form data.
-            app.MapGet("/api/posts", () => postManager.GetFeed());
-            app.MapPost("/api/posts", async (PostCreateDto dto) =>
-            {
-                if (string.IsNullOrWhiteSpace(dto.Content))
-                {
-                    return Results.BadRequest(new { error = "Post content cannot be empty." });
-                }
-
-                var post = postManager.CreatePost(currentUser.Id, currentUser.Username, dto.Content.Trim());
-                await postManager.SaveStateAsync();
-                return Results.Ok(post);
-            });
-
-            // API endpoint for poll creation point withdrawal
-            app.MapPost("/api/polls", async (PollCreateDto dto) =>
-            {
-                if (dto.BettedPoints > currentUser.PointsBalance)
-                {
-                    return Results.BadRequest(new { error = "Neturite pakankamai taškų!" });
-                }
-
-                currentUser.PointsBalance -= dto.BettedPoints;
-
-                // FIX: Create the poll using the data from the React frontend
-                var newPoll = manager.CreatePoll(
-                    currentUser.Id,
-                    dto.Question,
-                    dto.Category,
-                    dto.Tags,
-                    dto.Options.Select(opt => new PollOption(opt)).ToList(),
-                    DateTime.UtcNow.AddDays(1)
-                );
-                
-                // FIX: Save the state to the JSON file
-                await manager.SaveStateAsync();
-                return Results.Ok(new { 
-                    message = "Apklausa sukurta sėkmingai!", 
-                    remainingPoints = currentUser.PointsBalance 
-                });
-            });
-
-            app.Run("http://127.0.0.1:5000");
-        }
     }
 
     // Data transfer object for requests from react
