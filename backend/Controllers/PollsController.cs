@@ -16,6 +16,14 @@ namespace swe_1.Controllers
             _currentUser = currentUser;
         }
 
+        [HttpGet]
+        public IActionResult GetAllPolls()
+        {
+    
+        return Ok(_manager.GetAllPolls());
+    
+        }
+        
         [HttpPost]
         public async Task<IActionResult> CreatePoll([FromBody] PollCreateDto dto)
         {
@@ -42,5 +50,35 @@ namespace swe_1.Controllers
                 remainingPoints = _currentUser.PointsBalance 
             });
         }
+
+        [HttpPost("{id}/vote")]
+        public async Task<IActionResult> Vote(Guid id, [FromBody] VoteDto dto)
+        {
+            var poll = _manager.FirstOrDefault(p => p.Id == id);
+            if (poll == null)
+            {
+                return NotFound(new { error = "Apklausa nerasta." });
+            }
+
+            try
+            {
+        
+                var vote = new Vote(_currentUser.Id, dto.OptionIndex, dto.BettedPoints);
+                poll.CastVote(_currentUser, vote);
+        
+                await _manager.SaveStateAsync();
+        
+                return Ok(new { 
+                    message = "Balsas priimtas!", 
+                    remainingPoints = _currentUser.PointsBalance 
+                });
+            }
+            catch (Exception ex)
+            {
+            return BadRequest(new { error = ex.Message });
+            }
+        }
+    
     }
+    public record VoteDto(int OptionIndex, int BettedPoints);
 }

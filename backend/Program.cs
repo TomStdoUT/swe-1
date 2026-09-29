@@ -27,4 +27,7 @@ app.UseCors();
 // Map the endpoints from your Controller files
 app.MapControllers();
 
+var pollManager = app.Services.GetRequiredService<PollManager>();
+await pollManager.LoadStateAsync();
+
 app.Run("http://127.0.0.1:5000");

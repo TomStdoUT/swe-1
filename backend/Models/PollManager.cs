@@ -147,9 +147,31 @@ namespace PollSystem.Domain
             await JsonSerializer.SerializeAsync(stream, _polls, options);
         }
 
+        public async Task LoadStateAsync(string filePath = "poll_snapshot.json")
+        {
+        if (!File.Exists(filePath)) return;
+
+        using FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var loadedPolls = await JsonSerializer.DeserializeAsync<List<Poll>>(stream);
+    
+            if (loadedPolls != null)
+            {
+            _polls.Clear();
+            _polls.AddRange(loadedPolls);
+            }
+        }
+
         public IEnumerator<Poll> GetEnumerator() => _polls.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        
+        public IEnumerable<Poll> GetAllPolls()
+        {
+        
+        return _polls.OrderByDescending(p => p.ClosingTime);
+        
+        }
     }
+ 
 
     // Data transfer object for requests from react
     public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int BettedPoints);
