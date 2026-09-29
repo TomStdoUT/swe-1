@@ -65,7 +65,7 @@ export function MiniFeed({ onNavigate, refreshTrigger }) {
           alert(data.error);
         }
       } catch (error) {
-        alert('Klaida trinant apklausą.');
+        alert('Error deleting poll.');
       }
     }
   };
@@ -99,11 +99,16 @@ export function MiniFeed({ onNavigate, refreshTrigger }) {
   );
 }
 
+// --- FULL FEED ---
 export function FullFeed({ onNavigate, onVoteCast }) {
   const [polls, setPolls] = useState([]);
 
-  useEffect(() => {
+  const loadPolls = () => {
     fetch('/api/polls').then(res => res.json()).then(data => setPolls(data));
+  };
+
+  useEffect(() => {
+    loadPolls();
   }, []);
 
   const handleVote = async (pollId, optionIndices, bettedPoints) => {
@@ -111,25 +116,27 @@ export function FullFeed({ onNavigate, onVoteCast }) {
       const response = await fetch(`/api/polls/${pollId}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ optionIndices, bettedPoints })
+        body: JSON.stringify({ optionIndices, bettedPoints }) 
       });
-      const data = await response.json();
-      if (!response.ok) 
-        { const errorMessage = data.error || (data.errors && Object.values(data.errors).join(', ')) || 'Unknown error';
-          throw new Error(errorMessage);
-        }
       
+      const data = await response.json();
+      
+      if (!response.ok) {
+        const errorMessage = data.error || (data.errors && Object.values(data.errors).join(', ')) || 'Unknown error';
+        throw new Error(errorMessage);
+      }
       
       onVoteCast(data.remainingPoints); 
+      loadPolls(); 
       return true;
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      alert(`Klaida: ${error.message}`);
       return false;
     }
   };
 
   const handleDelete = async (pollId) => {
-    if (window.confirm('Are you sure you want to delete this poll? All user votes will be lost.')) {
+    if (window.confirm('Are you sure you want to delete this polls? All your user choices will be lost.')) {
       try {
         const response = await fetch(`/api/polls/${pollId}`, { method: 'DELETE' });
         if (response.ok) {
@@ -139,7 +146,7 @@ export function FullFeed({ onNavigate, onVoteCast }) {
           alert(data.error);
         }
       } catch (error) {
-        alert('Klaida trinant apklausą.');
+        alert('Error deleting poll.');
       }
     }
   };
@@ -147,7 +154,7 @@ export function FullFeed({ onNavigate, onVoteCast }) {
   return (
     <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Poll feed</h1>
+        <h1>Visos Apklausos</h1>
         <button onClick={onNavigate} style={{ padding: '8px 16px', borderRadius: '20px', cursor: 'pointer' }}>
           ← Back to creation
         </button>
@@ -160,13 +167,14 @@ export function FullFeed({ onNavigate, onVoteCast }) {
   );
 }
 
-// Individual Full Poll Card Logic
+// --- FULL POLL CARD ---
 function FullPollCard({ poll, onVote, onDelete }) {
   const existingVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
   const [selectedOptions, setSelectedOptions] = useState(existingVote ? existingVote.optionIndices : []);
   const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
   const [hasVoted, setHasVoted] = useState(!!existingVote);
   const [isVoting, setIsVoting] = useState(false);
+  
   const [isClosed, setIsClosed] = useState(
     new Date().getTime() >= new Date(poll.closingTime).getTime()
   );
@@ -184,12 +192,26 @@ function FullPollCard({ poll, onVote, onDelete }) {
 
   const isLocked = isClosed || hasVoted;
 
-  const correctIndices = poll.options
-    .map((opt, index) => opt.isCorrect ? index : -1)
-    .filter(index => index !== -1);
+  // NEW POPULARITY CALCULATION (Runs when the poll is closed)
+  let isWinner = false;
+  if (isClosed && hasVoted) {
+    const voteCounts = new Array(poll.options.length).fill(0);
+    if (poll.votes) {
+      poll.votes.forEach(v => {
+        v.optionIndices.forEach(idx => {
+          if (idx >= 0 && idx < voteCounts.length) voteCounts[idx]++;
+        });
+      });
+    }
     
-  const isWinner = selectedOptions.length === correctIndices.length && 
-                   selectedOptions.every(idx => correctIndices.includes(idx));
+    const maxVotes = Math.max(...voteCounts, 0);
+    const winningIndices = voteCounts
+      .map((count, index) => count === maxVotes && maxVotes > 0 ? index : -1)
+      .filter(index => index !== -1);
+      
+    // If what they picked includes the community favorite, they win
+    isWinner = selectedOptions.some(idx => winningIndices.includes(idx));
+  }
 
   const toggleOption = (index) => {
     if (isLocked) return;
@@ -226,9 +248,7 @@ function FullPollCard({ poll, onVote, onDelete }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '20px 0' }}>
         {poll.options.map((opt, index) => {
-          if (isLocked && !selectedOptions.includes(index)) {
-            return null;
-          }
+          if (isLocked && !selectedOptions.includes(index)) return null;
 
           return (
             <label 
@@ -245,11 +265,8 @@ function FullPollCard({ poll, onVote, onDelete }) {
             </label>
           );
         })}
-
         {isLocked && selectedOptions.length === 0 && (
-          <p style={{ color: 'var(--text)', fontStyle: 'italic', margin: 0 }}>
-            You have not voted in this poll.
-          </p>
+          <p style={{ color: 'var(--text)', fontStyle: 'italic', margin: 0 }}>You have not voted in this polls.</p>
         )}
       </div>
 
@@ -257,7 +274,7 @@ function FullPollCard({ poll, onVote, onDelete }) {
         <input 
           type="number" 
           min="0" 
-          placeholder="Statomi taškai (0)" 
+          placeholder="Betted points (0)" 
           value={bet}
           onChange={(e) => setBet(Math.max(0, parseInt(e.target.value) || 0))}
           style={{ padding: '8px', width: '150px' }}
@@ -278,6 +295,7 @@ function FullPollCard({ poll, onVote, onDelete }) {
           {hasVoted ? 'Vote accepted' : 'Vote'}
         </button>
       </div>
+
       {isClosed && hasVoted && (
         <div style={{ 
           marginTop: '20px', 
@@ -290,8 +308,8 @@ function FullPollCard({ poll, onVote, onDelete }) {
           border: `1px solid ${isWinner ? '#bbf7d0' : '#fecaca'}`
         }}>
           {isWinner 
-            ? `Correct! You have won ${bet * 2} points!` 
-            : `Incorrect. You have lost points.`}
+            ? `Correct! Your answer won. You have won ${bet * 2} points!` 
+            : `Incorrect. Your choice has lost. You have lost your betted points.`}
         </div>
       )}
     </div>

@@ -24,14 +24,13 @@ namespace swe_1.Controllers
     
         }
         
-        [HttpPost]
+ [HttpPost]
         public async Task<IActionResult> CreatePoll([FromBody] PollCreateDto dto)
         {
             try 
             {
-                var pollOptions = dto.Options.Select((opt, index) => 
-                    new PollOption(opt, dto.CorrectOptionIndices != null && dto.CorrectOptionIndices.Contains(index))
-                ).ToList();
+                // Revert to standard string mapping
+                var pollOptions = dto.Options.Select(opt => new PollOption(opt)).ToList();
 
                 _manager.CreatePoll(
                     _currentUser.Id,
