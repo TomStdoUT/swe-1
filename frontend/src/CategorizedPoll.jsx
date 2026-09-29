@@ -11,9 +11,12 @@ export function CategorizedPoll({ onPollCreated }) {
   const [userPoints, setUserPoints] = useState(100);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // NEW: State for timer and multiple choice
-  const [durationHours, setDurationHours] = useState(24);
   const [allowMultiple, setAllowMultiple] = useState(false);
+
+  // NEW: Three separate states starting at 0
+  const [durHours, setDurHours] = useState(0);
+  const [durMins, setDurMins] = useState(0);
+  const [durSecs, setDurSecs] = useState(0);
 
   useEffect(() => {
     fetch('/api/user')
@@ -40,19 +43,26 @@ export function CategorizedPoll({ onPollCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // NEW: Calculate total seconds and enforce 1-minute minimum
+    const totalSeconds = (durHours * 3600) + (durMins * 60) + durSecs;
+    if (totalSeconds < 60) {
+      alert('The poll must be at least 1 minute (60 seconds) long.');
+      return;
+    }
+
     const finalTags = [...tags];
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
       finalTags.push(tagInput.trim());
       setTagInput(''); 
     }
 
-    // NEW: Updated payload without pointsBet, added duration and multiple choice
+    // NEW: Send durationSeconds instead of durationHours
     const pollData = {
       question,
       category,
       tags: finalTags,
       options,
-      durationHours, 
+      durationSeconds: totalSeconds, 
       allowMultiple
     };
     
@@ -81,7 +91,9 @@ export function CategorizedPoll({ onPollCreated }) {
       setQuestion('');
       setOptions(['', '']);
       setTags([]);
-      setDurationHours(24);
+      setDurHours(0);
+      setDurMins(0);
+      setDurSecs(0);
       setAllowMultiple(false);
     } catch (error) {
       console.error('Failed to connect to backend:', error);
@@ -129,7 +141,6 @@ export function CategorizedPoll({ onPollCreated }) {
           </div>
         ))}
         
-        {/* NEW: Options toggle and Add button aligned properly */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
           {options.length < 6 && (
             <button type="button" onClick={() => setOptions([...options, ''])} style={{ padding: '6px 12px' }}>
@@ -192,17 +203,47 @@ export function CategorizedPoll({ onPollCreated }) {
         </div>
       </div>
 
-      {/* NEW: Timer input replaces Points to Stake */}
+      {/* NEW: Three distinct input boxes for Hours, Minutes, and Seconds */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Poll duration (hours):</label>
-        <input
-          type="number"
-          min="1"
-          max="168"
-          value={durationHours}
-          onChange={(e) => setDurationHours(Math.max(1, parseInt(e.target.value) || 1))}
-          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-        />
+        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Poll duration:</label>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '30%' }}>
+            <input
+              type="number"
+              min="0"
+              value={durHours}
+              onChange={(e) => setDurHours(Math.max(0, parseInt(e.target.value) || 0))}
+              style={{ width: '100%', padding: '8px', boxSizing: 'border-box', textAlign: 'center' }}
+            />
+            <span style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text)' }}>Hours</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '30%' }}>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={durMins}
+              onChange={(e) => setDurMins(Math.max(0, parseInt(e.target.value) || 0))}
+              style={{ width: '100%', padding: '8px', boxSizing: 'border-box', textAlign: 'center' }}
+            />
+            <span style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text)' }}>Minutes</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '30%' }}>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={durSecs}
+              onChange={(e) => setDurSecs(Math.max(0, parseInt(e.target.value) || 0))}
+              style={{ width: '100%', padding: '8px', boxSizing: 'border-box', textAlign: 'center' }}
+            />
+            <span style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text)' }}>Seconds</span>
+          </div>
+
+        </div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>

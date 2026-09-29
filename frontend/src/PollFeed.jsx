@@ -15,7 +15,7 @@ function TimerAndProgress({ createdAt, closingTime }) {
       const remaining = closing - now;
 
       if (remaining <= 0) {
-        setTimeLeft('Baigta (Closed)');
+        setTimeLeft('Closed');
         setProgress(100);
         return;
       }
@@ -23,7 +23,7 @@ function TimerAndProgress({ createdAt, closingTime }) {
       const elapsed = now - created;
       setProgress(Math.min(100, Math.max(0, (elapsed / totalDuration) * 100)));
 
-      const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
+      const hours = Math.floor(remaining / (1000 * 60 * 60));
       const minutes = Math.floor((remaining / 1000 / 60) % 60);
       const seconds = Math.floor((remaining / 1000) % 60);
       setTimeLeft(`${hours}h ${minutes}m ${seconds}s left`);
@@ -109,21 +109,24 @@ export function FullFeed({ onNavigate, onVoteCast }) {
     fetch('/api/polls').then(res => res.json()).then(data => setPolls(data));
   }, []);
 
-  const handleVote = async (pollId, optionIndex, bettedPoints) => {
+  const handleVote = async (pollId, optionIndices, bettedPoints) => {
     try {
       const response = await fetch(`/api/polls/${pollId}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ optionIndex, bettedPoints })
+        body: JSON.stringify({ optionIndices, bettedPoints })
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      
+      if (!response.ok) 
+        { const errorMessage = data.error || (data.errors && Object.values(data.errors).join(', ')) || 'Unknown error';
+          throw new Error(errorMessage);
+        }
       alert('Vote accepted!');
       onVoteCast(data.remainingPoints); 
-      
+      return true;
     } catch (error) {
-      alert(`Klaida: ${error.message}`);
+      alert(`Error: ${error.message}`);
+      return false;
     }
   };
 
@@ -161,13 +164,49 @@ export function FullFeed({ onNavigate, onVoteCast }) {
 
 // Individual Full Poll Card Logic
 function FullPollCard({ poll, onVote, onDelete }) {
-  const [selectedOption, setSelectedOption] = useState(null);
-  const [bet, setBet] = useState(0);
+  const existingVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
+  const [selectedOptions, setSelectedOptions] = useState(existingVote ? existingVote.optionIndices : []);
+  const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
+  const [hasVoted, setHasVoted] = useState(!!existingVote);
+  const [isVoting, setIsVoting] = useState(false);
+  const [isClosed, setIsClosed] = useState(
+    new Date().getTime() >= new Date(poll.closingTime).getTime()
+  );
+
+  useEffect(() => {
+    if (isClosed) return;
+    const interval = setInterval(() => {
+      if (new Date().getTime() >= new Date(poll.closingTime).getTime()) {
+        setIsClosed(true);
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [poll.closingTime, isClosed]);
+
+  const isLocked = isClosed || hasVoted;
+
+  const toggleOption = (index) => {
+    if (isLocked) return;
+    if (poll.allowMultiple) {
+      setSelectedOptions(prev => 
+        prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+      );
+    } else {
+      setSelectedOptions([index]);
+    }
+  };
+
+  const submitVote = async () => {
+    setIsVoting(true);
+    const success = await onVote(poll.id, selectedOptions, bet);
+    if (success) setHasVoted(true);
+    setIsVoting(false);
+  };
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>
       
-      {/* Delete Button (Top Right) */}
       <button 
         onClick={() => onDelete(poll.id)}
         style={{ position: 'absolute', top: '24px', right: '24px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -176,22 +215,37 @@ function FullPollCard({ poll, onVote, onDelete }) {
       </button>
 
       <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>
-      <p style={{ fontSize: '14px', color: 'var(--text)' }}>Kategorija: {poll.category}</p>
+      <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
       
       <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '20px 0' }}>
-        {poll.options.map((opt, index) => (
-          <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-            <input 
-              type="radio" 
-              name={`poll-${poll.id}`} 
-              checked={selectedOption === index}
-              onChange={() => setSelectedOption(index)} 
-            />
-            {opt.text}
-          </label>
-        ))}
+        {poll.options.map((opt, index) => {
+          if (isLocked && !selectedOptions.includes(index)) {
+            return null;
+          }
+
+          return (
+            <label 
+              key={index} 
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isLocked ? 'default' : 'pointer' }}
+            >
+              <input 
+                type={poll.allowMultiple ? "checkbox" : "radio"} 
+                checked={selectedOptions.includes(index)}
+                onChange={() => toggleOption(index)} 
+                disabled={isLocked}
+              />
+              {opt.text}
+            </label>
+          );
+        })}
+
+        {isLocked && selectedOptions.length === 0 && (
+          <p style={{ color: 'var(--text)', fontStyle: 'italic', margin: 0 }}>
+            You have not voted in this poll.
+          </p>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
@@ -202,13 +256,21 @@ function FullPollCard({ poll, onVote, onDelete }) {
           value={bet}
           onChange={(e) => setBet(Math.max(0, parseInt(e.target.value) || 0))}
           style={{ padding: '8px', width: '150px' }}
+          disabled={isLocked}
         />
         <button 
-          onClick={() => onVote(poll.id, selectedOption, bet)}
-          disabled={selectedOption === null}
-          style={{ padding: '8px 24px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '4px', cursor: selectedOption === null ? 'not-allowed' : 'pointer' }}
+          onClick={submitVote}
+          disabled={selectedOptions.length === 0 || isLocked || isVoting}
+          style={{ 
+            padding: '8px 24px', 
+            background: (selectedOptions.length === 0 || isLocked) ? 'var(--border)' : 'var(--accent)', 
+            color: (selectedOptions.length === 0 || isLocked) ? 'var(--text)' : '#fff', 
+            border: 'none', 
+            borderRadius: '4px', 
+            cursor: (selectedOptions.length === 0 || isLocked) ? 'not-allowed' : 'pointer' 
+          }}
         >
-          Balsuoti
+          {hasVoted ? 'Vote accepted' : 'Vote'}
         </button>
       </div>
     </div>

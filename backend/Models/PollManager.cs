@@ -40,13 +40,13 @@ namespace PollSystem.Domain
     public readonly struct Vote
     {
         public Guid UserId { get; }
-        public int OptionIndex { get; }
+        public List<int> OptionIndices { get; }
         public int BettedPoints { get; }
 
-        public Vote(Guid userId, int optionIndex, int pointsBet = 0)
+        public Vote(Guid userId, List<int> optionIndices, int pointsBet = 0)
         {
             UserId = userId;
-            OptionIndex = optionIndex;
+            OptionIndices = optionIndices ?? new List<int>();
             BettedPoints = pointsBet;
         }
     }
@@ -71,34 +71,37 @@ namespace PollSystem.Domain
         public List<PollOption> Options { get; set; } = new();
         public DateTime ClosingTime { get; set; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+        public bool AllowMultiple { get; set; }
 
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
 
         public void CastVote(User user, Vote vote)
+    {
+        if (this.IsClosed()) throw new InvalidOperationException("Voting for this poll has ended.");
+        
+        if (vote.OptionIndices == null || !vote.OptionIndices.Any())
+            throw new ArgumentException("You must select at least one option.");
+
+        if (!AllowMultiple && vote.OptionIndices.Count > 1)
+            throw new InvalidOperationException("This poll only allows a single choice.");
+
+        foreach (var index in vote.OptionIndices)
         {
-            if (this.IsClosed())
-            {
-                throw new InvalidOperationException("Voting for this poll has ended.");
-            }
-
-            if (vote.OptionIndex < 0 || vote.OptionIndex >= Options.Count)
-            {
-                throw new ArgumentOutOfRangeException(nameof(vote.OptionIndex), "Option doesn't exist, invalid option selected.");
-            }
-
-            if (vote.BettedPoints > 0)
-            {
-                if (user.PointsBalance < vote.BettedPoints)
-                {
-                    throw new InvalidOperationException("Insufficient points balance to place this bet.");
-                }
-
-                user.PointsBalance -= vote.BettedPoints;
-            }
-
-            _votes.Add(vote);
+            if (index < 0 || index >= Options.Count)
+                throw new ArgumentOutOfRangeException(nameof(vote.OptionIndices), "Option doesn't exist.");
         }
+
+        if (vote.BettedPoints > 0)
+        {
+            if (user.PointsBalance < vote.BettedPoints)
+                throw new InvalidOperationException("Insufficient points balance.");
+
+            user.PointsBalance -= vote.BettedPoints;
+        }
+
+        _votes.Add(vote);
+    }
 
         public bool Equals(Poll? other) => other != null && Id == other.Id;
         public int CompareTo(Poll? other) => ClosingTime.CompareTo(other?.ClosingTime);
@@ -109,32 +112,25 @@ namespace PollSystem.Domain
     {
         private readonly List<Poll> _polls = new();
 
-        public Poll CreatePoll(Guid creatorId, string question, string category, List<string> tags, List<PollOption> options, DateTime closingTime)
+        public Poll CreatePoll(Guid creatorId, string question, string category, List<string> tags, List<PollOption> options, DateTime closingTime, bool allowMultiple)
+    {
+        if (closingTime <= DateTime.UtcNow) throw new ArgumentException("The closing time should be set in the future.");
+        if (options == null || options.Count < 2 || options.Count > 6) throw new ArgumentException("A poll requires between 2 and 6 options.");
+
+        var poll = new Poll
         {
-            if (closingTime <= DateTime.UtcNow)
-            {
-                throw new ArgumentException("The closing time should be set in the future.");
-            }
+            CreatorId = creatorId,
+            Question = question,
+            Category = category,
+            Tags = tags,
+            Options = options,
+            ClosingTime = closingTime,
+            AllowMultiple = allowMultiple // MAP IT HERE
+        };
 
-            if (options == null || options.Count < 2 || options.Count > 6)
-            {
-                throw new ArgumentException("A poll requires between 2 and 6 options.");
-            }
-
-            var poll = new Poll
-            {
-                CreatorId = creatorId,
-                Question = question,
-                Category = category,
-                Tags = tags,
-                Options = options,
-                ClosingTime = closingTime
-            };
-
-            _polls.Add(poll);
-            return poll;
-        }
-
+        _polls.Add(poll);
+        return poll;
+    }
         public IEnumerable<Poll> GetCreatorPolls(Guid creatorId)
         {
             return _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
@@ -186,7 +182,7 @@ namespace PollSystem.Domain
  
 
     // Data transfer object for requests from react
-    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int DurationHours, bool AllowMultiple);
+    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int DurationSeconds, bool AllowMultiple);
     public record LoginDto(string Username, string? Password = null);
     public record PostCreateDto(string Content);
 }

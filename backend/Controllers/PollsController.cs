@@ -33,12 +33,13 @@ namespace swe_1.Controllers
                 dto.Category,
                 dto.Tags,
                 dto.Options.Select(opt => new PollOption(opt)).ToList(),
-                DateTime.UtcNow.AddHours(dto.DurationHours)
+                DateTime.UtcNow.AddSeconds(dto.DurationSeconds),
+                dto.AllowMultiple
             );
             
             await _manager.SaveStateAsync();
             
-            return Ok(new { 
+            return Ok(new {
                 message = "Apklausa sukurta sėkmingai!", 
                 remainingPoints = _currentUser.PointsBalance 
             });
@@ -48,27 +49,19 @@ namespace swe_1.Controllers
         public async Task<IActionResult> Vote(Guid id, [FromBody] VoteDto dto)
         {
             var poll = _manager.FirstOrDefault(p => p.Id == id);
-            if (poll == null)
-            {
-                return NotFound(new { error = "Apklausa nerasta." });
-            }
+            if (poll == null) return NotFound(new { error = "Apklausa nerasta." });
 
             try
             {
-        
-                var vote = new Vote(_currentUser.Id, dto.OptionIndex, dto.BettedPoints);
+                var vote = new Vote(_currentUser.Id, dto.OptionIndices, dto.BettedPoints);
                 poll.CastVote(_currentUser, vote);
         
                 await _manager.SaveStateAsync();
-        
-                return Ok(new { 
-                    message = "Balsas priimtas!", 
-                    remainingPoints = _currentUser.PointsBalance 
-                });
+                return Ok(new { message = "Balsas priimtas!", remainingPoints = _currentUser.PointsBalance });
             }
             catch (Exception ex)
             {
-            return BadRequest(new { error = ex.Message });
+                return BadRequest(new { error = ex.Message });
             }
         }
         [HttpDelete("{id}")]
@@ -85,5 +78,5 @@ namespace swe_1.Controllers
         }
     
     }
-    public record VoteDto(int OptionIndex, int BettedPoints);
+    public record VoteDto(List<int> OptionIndices, int BettedPoints);
 }
