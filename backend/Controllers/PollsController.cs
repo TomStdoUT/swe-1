@@ -27,20 +27,13 @@ namespace swe_1.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePoll([FromBody] PollCreateDto dto)
         {
-            if (dto.BettedPoints > _currentUser.PointsBalance)
-            {
-                return BadRequest(new { error = "Neturite pakankamai taškų!" });
-            }
-
-            _currentUser.PointsBalance -= dto.BettedPoints;
-
             _manager.CreatePoll(
                 _currentUser.Id,
                 dto.Question,
                 dto.Category,
                 dto.Tags,
                 dto.Options.Select(opt => new PollOption(opt)).ToList(),
-                DateTime.UtcNow.AddDays(1)
+                DateTime.UtcNow.AddHours(dto.DurationHours)
             );
             
             await _manager.SaveStateAsync();
