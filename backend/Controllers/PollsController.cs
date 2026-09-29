@@ -71,6 +71,18 @@ namespace swe_1.Controllers
             return BadRequest(new { error = ex.Message });
             }
         }
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePoll(Guid id)
+        {
+            var success = await _manager.DeletePollAsync(id);
+            
+            if (!success)
+            {
+                return NotFound(new { error = "Apklausa nerasta arba jau ištrinta." });
+            }
+
+            return Ok(new { message = "Apklausa sėkmingai ištrinta." });
+        }
     
     }
     public record VoteDto(int OptionIndex, int BettedPoints);

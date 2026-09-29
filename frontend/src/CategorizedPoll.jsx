@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 
-const CATEGORIES = ['Sportas', 'Technologijos', 'Politika', 'Pramogos', 'Kita'];
+const CATEGORIES = ['Sport', 'Technology', 'Politics', 'Fun', 'Other'];
 
-export function CategorizedPoll() {
+export function CategorizedPoll({ onPollCreated }) {
   const [question, setQuestion] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
@@ -73,7 +73,9 @@ export function CategorizedPoll() {
       const result = await response.json();
       setUserPoints(result.remainingPoints);
       
-      alert('Apklausa sukurta sėkmingai!');
+      alert('Success creating poll!');
+
+      if (onPollCreated) onPollCreated();
       
       // Reset form
       setQuestion('');
@@ -92,10 +94,10 @@ export function CategorizedPoll() {
   return (
     <form onSubmit={handleSubmit} style={{ padding: '20px', width: '100%', maxWidth: '450px', margin: '0 auto' }}>
       
-      <h2 style={{ textAlign: 'center', marginBottom: '25px' }}>Sukurti apklausą su kategorija (Issue #4)</h2>
+      <h2 style={{ textAlign: 'center', marginBottom: '25px' }}>Create a poll with a category</h2>
 
       <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Klausimas:</label>
+        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Question:</label>
         <input
           type="text"
           value={question}
@@ -106,7 +108,7 @@ export function CategorizedPoll() {
       </div>
 
       <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Variantai (2 - 6):</label>
+        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Choices (2 - 6):</label>
         {options.map((opt, index) => (
           <div key={index} style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
             <input
@@ -118,7 +120,7 @@ export function CategorizedPoll() {
                 setOptions(newOpts);
               }}
               required
-              placeholder={`Variantas ${index + 1}`}
+              placeholder={`Choice ${index + 1}`}
               style={{ flex: 1, padding: '8px' }}
             />
             {options.length > 2 && (
@@ -131,7 +133,7 @@ export function CategorizedPoll() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
           {options.length < 6 && (
             <button type="button" onClick={() => setOptions([...options, ''])} style={{ padding: '6px 12px' }}>
-              + Pridėti variantą
+              + Add new choice
             </button>
           )}
           <button 
@@ -139,13 +141,13 @@ export function CategorizedPoll() {
             onClick={() => setAllowMultiple(!allowMultiple)}
             style={{ padding: '6px 12px', background: allowMultiple ? 'var(--accent)' : 'var(--bg)', color: allowMultiple ? '#fff' : 'var(--text-h)', border: '1px solid var(--border)' }}
           >
-            {allowMultiple ? 'Keli atsakymai' : 'Vienas atsakymas'}
+            {allowMultiple ? 'Multiple choices' : 'One answer'}
           </button>
         </div>
       </div>
 
       <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Kategorija:</label>
+        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Category:</label>
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -160,7 +162,7 @@ export function CategorizedPoll() {
       </div>
 
       <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Žymos (Tags):</label>
+        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Tags:</label>
         <div style={{ display: 'flex', gap: '5px' }}>
           <input
             type="text"
@@ -172,7 +174,7 @@ export function CategorizedPoll() {
                 handleAddTag();
               }
             }}
-            placeholder="Įveskite žymą"
+            placeholder="Enter a tag"
             style={{ flex: 1, padding: '8px' }}
           />
           <button type="button" onClick={handleAddTag}>Pridėti</button>
@@ -192,7 +194,7 @@ export function CategorizedPoll() {
 
       {/* NEW: Timer input replaces Points to Stake */}
       <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Apklausos trukmė (valandomis):</label>
+        <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Poll duration (hours):</label>
         <input
           type="number"
           min="1"
@@ -203,7 +205,6 @@ export function CategorizedPoll() {
         />
       </div>
 
-      {/* NEW: Bottom row with Points on left and Submit on right */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
         <div style={{ 
           background: '#fff', 
@@ -215,11 +216,11 @@ export function CategorizedPoll() {
           fontWeight: 'bold',
           boxShadow: 'var(--shadow)'
         }}>
-          Taškai: <span style={{ color: '#4caf50' }}>{userPoints}</span>
+          Points: <span style={{ color: '#4caf50' }}>{userPoints}</span>
         </div>
         
         <button type="submit" disabled={isSubmitting} style={{ padding: '10px 20px', fontWeight: 'bold' }}>
-          {isSubmitting ? 'Išsaugoma...' : 'Išsaugoti apklausą'}
+          {isSubmitting ? 'Saving...' : 'Save the poll to feed'}
         </button>
       </div>
     </form>

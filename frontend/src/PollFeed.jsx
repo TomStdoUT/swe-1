@@ -26,7 +26,7 @@ function TimerAndProgress({ createdAt, closingTime }) {
       const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((remaining / 1000 / 60) % 60);
       const seconds = Math.floor((remaining / 1000) % 60);
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s liko`);
+      setTimeLeft(`${hours}h ${minutes}m ${seconds}s left`);
     };
 
     calculateTime();
@@ -37,7 +37,7 @@ function TimerAndProgress({ createdAt, closingTime }) {
   return (
     <div style={{ marginBottom: '15px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
-        <span>Statusas:</span>
+        <span>Time left:</span>
         <strong>{timeLeft}</strong>
       </div>
       <div style={{ width: '100%', height: '8px', background: 'var(--code-bg)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -48,25 +48,50 @@ function TimerAndProgress({ createdAt, closingTime }) {
 }
 
 // --- MINI FEED (Side-by-side version) ---
-export function MiniFeed({ onNavigate }) {
+export function MiniFeed({ onNavigate, refreshTrigger }) {
   const [polls, setPolls] = useState([]);
 
   useEffect(() => {
     fetch('/api/polls').then(res => res.json()).then(data => setPolls(data));
-  }, []);
+  }, [refreshTrigger]);
+
+  const handleDelete = async (pollId) => {
+    if (window.confirm('Are you sure you want to delete this poll?')) {
+      try {
+        const response = await fetch(`/api/polls/${pollId}`, { method: 'DELETE' });
+        if (response.ok) {
+          setPolls(polls.filter(p => p.id !== pollId));
+        } else {
+          const data = await response.json();
+          alert(data.error);
+        }
+      } catch (error) {
+        alert('Klaida trinant apklausą.');
+      }
+    }
+  };
 
   return (
     <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h2>Apklausų srautas</h2>
+        <h2>Poll side feed</h2>
         <button onClick={onNavigate} style={{ padding: '8px 16px', borderRadius: '20px', cursor: 'pointer' }}>
           Go to Feed
         </button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', maxHeight: '75vh', paddingRight: '10px' }}>
         {polls.map(poll => (
-          <div key={poll.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px' }}>{poll.question}</h3>
+          <div key={poll.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', marginBottom: '16px', position: 'relative' }}>
+            
+            {/* Delete Button (Top Right) */}
+            <button 
+              onClick={() => handleDelete(poll.id)}
+              style={{ position: 'absolute', top: '10px', right: '10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px' }}
+            >
+              Delete
+            </button>
+
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', paddingRight: '50px' }}>{poll.question}</h3>
             <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
           </div>
         ))}
@@ -77,7 +102,7 @@ export function MiniFeed({ onNavigate }) {
 
 
 // --- FULL FEED (Full page version with voting) ---
-export function FullFeed({ onNavigate }) {
+export function FullFeed({ onNavigate, onVoteCast }) {
   const [polls, setPolls] = useState([]);
 
   useEffect(() => {
@@ -93,36 +118,64 @@ export function FullFeed({ onNavigate }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      alert(`Pavyko! Likę taškai: ${data.remainingPoints}`);
+      
+      alert('Vote accepted!');
+      onVoteCast(data.remainingPoints); 
+      
     } catch (error) {
       alert(`Klaida: ${error.message}`);
+    }
+  };
+
+  const handleDelete = async (pollId) => {
+    if (window.confirm('Are you sure you want to delete this poll? All user votes will be lost.')) {
+      try {
+        const response = await fetch(`/api/polls/${pollId}`, { method: 'DELETE' });
+        if (response.ok) {
+          setPolls(polls.filter(p => p.id !== pollId));
+        } else {
+          const data = await response.json();
+          alert(data.error);
+        }
+      } catch (error) {
+        alert('Klaida trinant apklausą.');
+      }
     }
   };
 
   return (
     <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Visos Apklausos</h1>
+        <h1>Poll feed</h1>
         <button onClick={onNavigate} style={{ padding: '8px 16px', borderRadius: '20px', cursor: 'pointer' }}>
-          ← Atgal į kūrimą
+          ← Back to creation
         </button>
       </div>
 
       {polls.map(poll => (
-        <FullPollCard key={poll.id} poll={poll} onVote={handleVote} />
+        <FullPollCard key={poll.id} poll={poll} onVote={handleVote} onDelete={handleDelete} />
       ))}
     </div>
   );
 }
 
 // Individual Full Poll Card Logic
-function FullPollCard({ poll, onVote }) {
+function FullPollCard({ poll, onVote, onDelete }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [bet, setBet] = useState(0);
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left' }}>
-      <h2 style={{ marginTop: 0 }}>{poll.question}</h2>
+    <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>
+      
+      {/* Delete Button (Top Right) */}
+      <button 
+        onClick={() => onDelete(poll.id)}
+        style={{ position: 'absolute', top: '24px', right: '24px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontWeight: 'bold' }}
+      >
+        Delete
+      </button>
+
+      <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>
       <p style={{ fontSize: '14px', color: 'var(--text)' }}>Kategorija: {poll.category}</p>
       
       <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />

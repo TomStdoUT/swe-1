@@ -170,6 +170,18 @@ namespace PollSystem.Domain
         return _polls.OrderByDescending(p => p.ClosingTime);
         
         }
+
+        public async Task<bool> DeletePollAsync(Guid pollId)
+        {
+            var poll = _polls.FirstOrDefault(p => p.Id == pollId);
+            if (poll != null)
+            {
+            _polls.Remove(poll);
+            await SaveStateAsync();
+            return true;
+            }
+        return false;
+        }
     }
  
 

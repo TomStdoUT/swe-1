@@ -9,6 +9,7 @@ function App() {
   const [userPoints, setUserPoints] = useState(0); // NEW: Global points state
   const [restoring, setRestoring] = useState(() => Boolean(sessionStorage.getItem('poll-username')));
   const [currentView, setCurrentView] = useState('creator');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch user data on load
   useEffect(() => {
@@ -62,11 +63,10 @@ function App() {
 
       {currentView === 'creator' ? (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', padding: '20px', alignItems: 'flex-start' }}>
-          <CategorizedPoll />
-          <MiniFeed onNavigate={() => setCurrentView('feed')} />
+          <CategorizedPoll onPollCreated={() => setRefreshTrigger(prev => prev + 1)} />
+          <MiniFeed onNavigate={() => setCurrentView('feed')} refreshTrigger={refreshTrigger} />
         </div>
       ) : (
-        // Pass a callback to update points immediately after voting
         <FullFeed 
           onNavigate={() => setCurrentView('creator')} 
           onVoteCast={(newPoints) => setUserPoints(newPoints)} 
@@ -87,7 +87,7 @@ function App() {
         boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
         zIndex: 1000
       }}>
-        Taškai: <span style={{ color: '#4caf50', fontSize: '18px' }}>{userPoints}</span>
+        Points: <span style={{ color: '#4caf50', fontSize: '18px' }}>{userPoints}</span>
       </div>
     </div>
   );
