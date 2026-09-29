@@ -17,7 +17,7 @@ namespace PollSystem.Domain
         public Guid Id { get; init; } = Guid.NewGuid();
         public string Username { get; set; } = string.Empty;
         public int PointsBalance { get; set; } = 100; // Default starting balance
-
+        public record PollOption(string text, bool isCorrect = false);
         public User() { }
 
         public User(string username, int initialPoints = 100)
@@ -34,7 +34,7 @@ namespace PollSystem.Domain
 
 
     // Record representing a poll choice
-    public record PollOption(string text);
+    public record PollOption(string text, bool isCorrect = false);
 
     // Readonly struct representing a vote
     public readonly struct Vote
@@ -117,6 +117,11 @@ namespace PollSystem.Domain
         if (closingTime <= DateTime.UtcNow) throw new ArgumentException("The closing time should be set in the future.");
         if (options == null || options.Count < 2 || options.Count > 6) throw new ArgumentException("A poll requires between 2 and 6 options.");
 
+        var correctCount = options.Count(o => o.isCorrect);
+        if (correctCount == 0) throw new ArgumentException("You must select at least one correct answer.");
+        if (correctCount == options.Count) throw new ArgumentException("There must always be at least one incorrect choice.");
+        if (!allowMultiple && correctCount > 1) throw new ArgumentException("Single choice polls can only have one correct answer.");
+
         var poll = new Poll
         {
             CreatorId = creatorId,
@@ -182,7 +187,7 @@ namespace PollSystem.Domain
  
 
     // Data transfer object for requests from react
-    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int DurationSeconds, bool AllowMultiple);
+    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int DurationSeconds, bool AllowMultiple, List<int> CorrectOptionIndices);
     public record LoginDto(string Username, string? Password = null);
     public record PostCreateDto(string Content);
 }

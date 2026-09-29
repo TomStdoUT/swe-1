@@ -27,22 +27,35 @@ namespace swe_1.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePoll([FromBody] PollCreateDto dto)
         {
-            _manager.CreatePoll(
-                _currentUser.Id,
-                dto.Question,
-                dto.Category,
-                dto.Tags,
-                dto.Options.Select(opt => new PollOption(opt)).ToList(),
-                DateTime.UtcNow.AddSeconds(dto.DurationSeconds),
-                dto.AllowMultiple
-            );
-            
-            await _manager.SaveStateAsync();
-            
-            return Ok(new {
-                message = "Apklausa sukurta sėkmingai!", 
-                remainingPoints = _currentUser.PointsBalance 
-            });
+            try 
+            {
+                // NEW: Map the string options to PollOption records, checking if their index is marked as correct
+                var pollOptions = dto.Options.Select((opt, index) => 
+                    new PollOption(opt, dto.CorrectOptionIndices != null && dto.CorrectOptionIndices.Contains(index))
+                ).ToList();
+
+                _manager.CreatePoll(
+                    _currentUser.Id,
+                    dto.Question,
+                    dto.Category,
+                    dto.Tags,
+                    pollOptions, // Pass the mapped options
+                    DateTime.UtcNow.AddSeconds(dto.DurationSeconds),
+                    dto.AllowMultiple
+                );
+                
+                await _manager.SaveStateAsync();
+                
+                return Ok(new {
+                    message = "Apklausa sukurta sėkmingai!", 
+                    remainingPoints = _currentUser.PointsBalance 
+                });
+            }
+            catch (Exception ex)
+            {
+                // Returns the backend validation errors cleanly to React
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpPost("{id}/vote")]

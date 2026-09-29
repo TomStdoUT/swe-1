@@ -13,7 +13,9 @@ export function CategorizedPoll({ onPollCreated }) {
   
   const [allowMultiple, setAllowMultiple] = useState(false);
 
-  // NEW: Three separate states starting at 0
+  // NEW: State to track which options are marked as correct
+  const [correctOptionIndices, setCorrectOptionIndices] = useState([]);
+
   const [durHours, setDurHours] = useState(0);
   const [durMins, setDurMins] = useState(0);
   const [durSecs, setDurSecs] = useState(0);
@@ -40,10 +42,30 @@ export function CategorizedPoll({ onPollCreated }) {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
+  // NEW: Handle toggling correct answers
+  const handleToggleCorrect = (index) => {
+    if (!allowMultiple) {
+      setCorrectOptionIndices([index]); // Radio button behavior
+    } else {
+      setCorrectOptionIndices(prev => 
+        prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+      ); // Checkbox behavior
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // NEW: Calculate total seconds and enforce 1-minute minimum
+    // NEW: Validation for correct answers
+    if (correctOptionIndices.length === 0) {
+      alert('You must select at least one correct answer.');
+      return;
+    }
+    if (correctOptionIndices.length === options.length) {
+      alert('There must always be at least one incorrect choice (you cannot mark all as correct).');
+      return;
+    }
+
     const totalSeconds = (durHours * 3600) + (durMins * 60) + durSecs;
     if (totalSeconds < 60) {
       alert('The poll must be at least 1 minute (60 seconds) long.');
@@ -56,14 +78,15 @@ export function CategorizedPoll({ onPollCreated }) {
       setTagInput(''); 
     }
 
-    // NEW: Send durationSeconds instead of durationHours
+    // NEW: Include correctOptionIndices in payload
     const pollData = {
       question,
       category,
       tags: finalTags,
       options,
       durationSeconds: totalSeconds, 
-      allowMultiple
+      allowMultiple,
+      correctOptionIndices
     };
     
     setIsSubmitting(true);
@@ -74,15 +97,15 @@ export function CategorizedPoll({ onPollCreated }) {
         body: JSON.stringify(pollData),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.error}`);
+        const errorMessage = data.error || (data.errors && Object.values(data.errors).join(', ')) || 'Unknown error';
+        alert(`Error: ${errorMessage}`);
         return;
       }
 
-      const result = await response.json();
-      setUserPoints(result.remainingPoints);
-      
+      setUserPoints(data.remainingPoints);
       alert('Success creating poll!');
 
       if (onPollCreated) onPollCreated();
@@ -95,6 +118,7 @@ export function CategorizedPoll({ onPollCreated }) {
       setDurMins(0);
       setDurSecs(0);
       setAllowMultiple(false);
+      setCorrectOptionIndices([]); // Reset correct choices
     } catch (error) {
       console.error('Failed to connect to backend:', error);
       alert('Could not connect to backend server.');
@@ -122,7 +146,7 @@ export function CategorizedPoll({ onPollCreated }) {
       <div style={{ marginBottom: '15px' }}>
         <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Choices (2 - 6):</label>
         {options.map((opt, index) => (
-          <div key={index} style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+          <div key={index} style={{ display: 'flex', gap: '8px', marginTop: '5px', alignItems: 'center' }}>
             <input
               type="text"
               value={opt}
@@ -135,21 +159,50 @@ export function CategorizedPoll({ onPollCreated }) {
               placeholder={`Choice ${index + 1}`}
               style={{ flex: 1, padding: '8px' }}
             />
+            
+            {/* NEW: Correct Answer Checkbox/Radio */}
+            <input
+              type={allowMultiple ? "checkbox" : "radio"}
+              checked={correctOptionIndices.includes(index)}
+              onChange={() => handleToggleCorrect(index)}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              title="Mark as correct answer"
+            />
+
             {options.length > 2 && (
-              <button type="button" onClick={() => setOptions(options.filter((_, i) => i !== index))}>X</button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setOptions(options.filter((_, i) => i !== index));
+                  setCorrectOptionIndices([]); // Clear correct answers to prevent index shifting bugs
+                }}
+              >X</button>
             )}
           </div>
         ))}
         
         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>
           {options.length < 6 && (
-            <button type="button" onClick={() => setOptions([...options, ''])} style={{ padding: '6px 12px' }}>
+            <button 
+              type="button" 
+              onClick={() => {
+                setOptions([...options, '']);
+                setCorrectOptionIndices([]); // Clear correct answers to prevent index shifting bugs
+              }} 
+              style={{ padding: '6px 12px' }}
+            >
               + Add new choice
             </button>
           )}
           <button 
             type="button" 
-            onClick={() => setAllowMultiple(!allowMultiple)}
+            onClick={() => {
+              setAllowMultiple(!allowMultiple);
+              // If switching back to single choice, keep only the first selected answer
+              if (allowMultiple && correctOptionIndices.length > 1) {
+                setCorrectOptionIndices([correctOptionIndices[0]]);
+              }
+            }}
             style={{ padding: '6px 12px', background: allowMultiple ? 'var(--accent)' : 'var(--bg)', color: allowMultiple ? '#fff' : 'var(--text-h)', border: '1px solid var(--border)' }}
           >
             {allowMultiple ? 'Multiple choices' : 'One answer'}
@@ -203,7 +256,6 @@ export function CategorizedPoll({ onPollCreated }) {
         </div>
       </div>
 
-      {/* NEW: Three distinct input boxes for Hours, Minutes, and Seconds */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Poll duration:</label>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
