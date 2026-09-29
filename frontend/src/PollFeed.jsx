@@ -47,7 +47,6 @@ function TimerAndProgress({ createdAt, closingTime }) {
   );
 }
 
-// --- MINI FEED (Side-by-side version) ---
 export function MiniFeed({ onNavigate, refreshTrigger }) {
   const [polls, setPolls] = useState([]);
 
@@ -100,8 +99,6 @@ export function MiniFeed({ onNavigate, refreshTrigger }) {
   );
 }
 
-
-// --- FULL FEED (Full page version with voting) ---
 export function FullFeed({ onNavigate, onVoteCast }) {
   const [polls, setPolls] = useState([]);
 
@@ -121,7 +118,8 @@ export function FullFeed({ onNavigate, onVoteCast }) {
         { const errorMessage = data.error || (data.errors && Object.values(data.errors).join(', ')) || 'Unknown error';
           throw new Error(errorMessage);
         }
-      alert('Vote accepted!');
+      
+      
       onVoteCast(data.remainingPoints); 
       return true;
     } catch (error) {
@@ -185,6 +183,13 @@ function FullPollCard({ poll, onVote, onDelete }) {
   }, [poll.closingTime, isClosed]);
 
   const isLocked = isClosed || hasVoted;
+
+  const correctIndices = poll.options
+    .map((opt, index) => opt.isCorrect ? index : -1)
+    .filter(index => index !== -1);
+    
+  const isWinner = selectedOptions.length === correctIndices.length && 
+                   selectedOptions.every(idx => correctIndices.includes(idx));
 
   const toggleOption = (index) => {
     if (isLocked) return;
@@ -273,6 +278,22 @@ function FullPollCard({ poll, onVote, onDelete }) {
           {hasVoted ? 'Vote accepted' : 'Vote'}
         </button>
       </div>
+      {isClosed && hasVoted && (
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '12px', 
+          borderRadius: '6px', 
+          background: isWinner ? '#dcfce7' : '#fee2e2', 
+          color: isWinner ? '#166534' : '#991b1b', 
+          fontWeight: 'bold', 
+          textAlign: 'center',
+          border: `1px solid ${isWinner ? '#bbf7d0' : '#fecaca'}`
+        }}>
+          {isWinner 
+            ? `Correct! You have won ${bet * 2} points!` 
+            : `Incorrect. You have lost points.`}
+        </div>
+      )}
     </div>
   );
 }

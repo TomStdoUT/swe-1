@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace PollSystem.Domain
 {
 
-    // Represents a user with points
     public class User
     {
         public Guid Id { get; init; } = Guid.NewGuid();
@@ -33,10 +32,8 @@ namespace PollSystem.Domain
     }
 
 
-    // Record representing a poll choice
     public record PollOption(string text, bool isCorrect = false);
 
-    // Readonly struct representing a vote
     public readonly struct Vote
     {
         public Guid UserId { get; }
@@ -51,7 +48,6 @@ namespace PollSystem.Domain
         }
     }
 
-    // Extension method to check if a poll's time limit has expired
     public static class PollExtension
     {
         public static bool IsClosed(this Poll poll)
@@ -59,8 +55,6 @@ namespace PollSystem.Domain
             return DateTime.UtcNow >= poll.ClosingTime;
         }
     }
-
-    // Poll Domain Model supporting custom time limits
     public class Poll : IEquatable<Poll>, IComparable<Poll>
     {
         public Guid Id { get; init; } = Guid.NewGuid();
@@ -76,7 +70,7 @@ namespace PollSystem.Domain
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
 
-        public void CastVote(User user, Vote vote)
+        public bool CastVote(User user, Vote vote)
     {
         if (this.IsClosed()) throw new InvalidOperationException("Voting for this poll has ended.");
         
@@ -92,22 +86,37 @@ namespace PollSystem.Domain
                 throw new ArgumentOutOfRangeException(nameof(vote.OptionIndices), "Option doesn't exist.");
         }
 
+        var correctIndices = Options
+            .Select((opt, index) => new { opt, index })
+            .Where(x => x.opt.isCorrect)
+            .Select(x => x.index)
+            .ToList();
+
+        bool isCorrect = vote.OptionIndices.Count == correctIndices.Count && 
+                         vote.OptionIndices.All(correctIndices.Contains);
+
         if (vote.BettedPoints > 0)
         {
             if (user.PointsBalance < vote.BettedPoints)
                 throw new InvalidOperationException("Insufficient points balance.");
 
             user.PointsBalance -= vote.BettedPoints;
+
+            if (isCorrect)
+            {
+                user.PointsBalance += (vote.BettedPoints * 2);
+            }
         }
 
         _votes.Add(vote);
+
+        return isCorrect;
     }
 
         public bool Equals(Poll? other) => other != null && Id == other.Id;
         public int CompareTo(Poll? other) => ClosingTime.CompareTo(other?.ClosingTime);
     }
 
-    // PollManager handling timed poll creation & state persistence
     public class PollManager : IEnumerable<Poll>
     {
         private readonly List<Poll> _polls = new();
@@ -130,7 +139,7 @@ namespace PollSystem.Domain
             Tags = tags,
             Options = options,
             ClosingTime = closingTime,
-            AllowMultiple = allowMultiple // MAP IT HERE
+            AllowMultiple = allowMultiple
         };
 
         _polls.Add(poll);
@@ -186,7 +195,6 @@ namespace PollSystem.Domain
     }
  
 
-    // Data transfer object for requests from react
     public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int DurationSeconds, bool AllowMultiple, List<int> CorrectOptionIndices);
     public record LoginDto(string Username, string? Password = null);
     public record PostCreateDto(string Content);

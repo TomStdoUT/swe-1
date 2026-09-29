@@ -6,7 +6,7 @@ import './App.css';
 
 function App() {
   const [username, setUsername] = useState(null);
-  const [userPoints, setUserPoints] = useState(0); // NEW: Global points state
+  const [userPoints, setUserPoints] = useState(0);
   const [restoring, setRestoring] = useState(() => Boolean(sessionStorage.getItem('poll-username')));
   const [currentView, setCurrentView] = useState('creator');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -30,13 +30,13 @@ function App() {
       })
       .then((data) => {
         setUsername(data.username);
-        setUserPoints(data.pointsBalance); // Set points from backend
+        setUserPoints(data.pointsBalance); 
       })
       .catch(() => sessionStorage.removeItem('poll-username'))
       .finally(() => setRestoring(false));
   }, []);
 
-  // Update this to accept points from the Login screen
+
   const handleLogin = (name, points) => {
     sessionStorage.setItem('poll-username', name);
     setUsername(name);
@@ -47,7 +47,7 @@ function App() {
   if (!username) return <Login onLogin={handleLogin} />;
 
   return (
-    <div style={{ paddingBottom: '70px' }}> {/* Adds padding so content doesn't hide behind footer */}
+    <div style={{ paddingBottom: '70px' }}>
       <header className="app-user-bar">
         <span>Signed in as <strong>{username}</strong></span>
         <button
@@ -73,7 +73,7 @@ function App() {
         />
       )}
 
-      {/* NEW: Global Fixed Footer */}
+
       <div style={{ 
         position: 'fixed', 
         bottom: 0, 
