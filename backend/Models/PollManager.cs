@@ -69,7 +69,7 @@ namespace PollSystem.Domain
         {
             if (this.IsClosed()) throw new InvalidOperationException("Voting for this poll has ended.");
             
-            if (vote.OptionIndices == null || !vote.OptionIndices.Any())
+if (!vote.OptionIndices.Any())
                 throw new ArgumentException("You must select at least one option.");
 
             if (!AllowMultiple && vote.OptionIndices.Count > 1)
