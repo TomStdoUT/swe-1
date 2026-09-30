@@ -55,6 +55,8 @@ function App() {
           onClick={() => {
             sessionStorage.removeItem('poll-username');
             setUsername(null);
+            setUserPoints(100);
+            setRefreshTrigger(prev => prev + 1);
           }}
         >
           Log out
@@ -68,6 +70,7 @@ function App() {
         </div>
       ) : (
         <FullFeed 
+          key={username}
           onNavigate={() => setCurrentView('creator')} 
           onVoteCast={(newPoints) => setUserPoints(newPoints)} 
         />

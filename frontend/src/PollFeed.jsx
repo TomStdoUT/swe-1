@@ -51,7 +51,12 @@ export function MiniFeed({ onNavigate, refreshTrigger }) {
   const [polls, setPolls] = useState([]);
 
   useEffect(() => {
-    fetch('/api/polls').then(res => res.json()).then(data => setPolls(data));
+    const username = sessionStorage.getItem('poll-username');
+    fetch('/api/polls', {
+      headers: { 'X-Username': username || '' }
+    })
+      .then(res => res.json())
+      .then(data => setPolls(data));
   }, [refreshTrigger]);
 
   const handleDelete = async (pollId) => {
@@ -104,7 +109,12 @@ export function FullFeed({ onNavigate, onVoteCast }) {
   const [polls, setPolls] = useState([]);
 
   const loadPolls = () => {
-    fetch('/api/polls').then(res => res.json()).then(data => setPolls(data));
+    const username = sessionStorage.getItem('poll-username');
+    fetch('/api/polls', {
+      headers: { 'X-Username': username || '' }
+    })
+      .then(res => res.json())
+      .then(data => setPolls(data));
   };
 
   useEffect(() => {
@@ -113,9 +123,13 @@ export function FullFeed({ onNavigate, onVoteCast }) {
 
   const handleVote = async (pollId, optionIndices, bettedPoints) => {
     try {
+      const activeUsername = sessionStorage.getItem('poll-username'); // Read straight from session storage
       const response = await fetch(`/api/polls/${pollId}/vote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Username': activeUsername || '' 
+        },
         body: JSON.stringify({ optionIndices, bettedPoints }) 
       });
       
@@ -179,6 +193,14 @@ function FullPollCard({ poll, onVote, onDelete }) {
   const [comments, setComments] = useState(poll.comments || []);
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  useEffect(() => {
+    const currentVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
+    setSelectedOptions(currentVote ? currentVote.optionIndices : []);
+    setBet(currentVote ? currentVote.bettedPoints : 0);
+    setHasVoted(!!currentVote);
+    setComments(poll.comments || []);
+  }, [poll]);
 
   const handleAddComment = async (e) => {
     e.preventDefault();
@@ -277,7 +299,9 @@ function FullPollCard({ poll, onVote, onDelete }) {
       <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
       
       <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
-
+      <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '15px' }}>
+        Total votes: <strong>{poll.totalVotesCount ?? 0}</strong>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '20px 0' }}>
         {poll.options.map((opt, index) => {
           if (isLocked && !selectedOptions.includes(index)) return null;

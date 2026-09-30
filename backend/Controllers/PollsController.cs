@@ -19,9 +19,28 @@ namespace swe_1.Controllers
         [HttpGet]
         public IActionResult GetAllPolls()
         {
-    
-        return Ok(_manager.GetAllPolls());
-    
+            var username = Request.Headers["X-Username"].ToString();
+            var activeUserId = GetUserIdFromUsername(username);
+
+            var polls = _manager.GetAllPolls();
+
+            var userPolls = polls.Select(p => new
+            {
+                p.Id,
+                p.CreatorId,
+                p.Question,
+                p.Category,
+                p.Tags,
+                p.Options,
+                p.ClosingTime,
+                p.CreatedAt,
+                p.AllowMultiple,
+                p.Comments,
+                Votes = p.Votes.Where(v => v.UserId == activeUserId).ToList(),
+                TotalVotesCount = p.Votes.Count()
+            });
+
+            return Ok(userPolls);
         }
         
  [HttpPost]
@@ -58,17 +77,30 @@ namespace swe_1.Controllers
         [HttpPost("{id}/vote")]
         public async Task<IActionResult> Vote(Guid id, [FromBody] VoteDto dto)
         {
+            var username = Request.Headers["X-Username"].ToString();
+            var userId = GetUserIdFromUsername(username);
+
+            if (userId == Guid.Empty)
+            {
+                return BadRequest(new { error = "Invalid user session." });
+            }
+
             var poll = _manager.FirstOrDefault(p => p.Id == id);
             if (poll == null) return NotFound(new { error = "Poll not found." });
 
             try
             {
-                var vote = new Vote(_currentUser.Id, dto.OptionIndices, dto.BettedPoints);
+                // Create a temporary user object with the correct Id and Username for casting
+                var votingUser = new User(username, _currentUser.PointsBalance) { Id = userId };
                 
-                poll.CastVote(_currentUser, vote);
+                var vote = new Vote(userId, dto.OptionIndices, dto.BettedPoints);
+                poll.CastVote(votingUser, vote);
+
+                // Sync back points balance if needed
+                _currentUser.PointsBalance = votingUser.PointsBalance;
 
                 await _manager.SaveStateAsync();
-                return Ok(new { message = "Vote accepted!", remainingPoints = _currentUser.PointsBalance });
+                return Ok(new { message = "Vote accepted!", remainingPoints = votingUser.PointsBalance });
             }
             catch (Exception ex)
             {
@@ -107,7 +139,19 @@ namespace swe_1.Controllers
                 return NotFound(new { error = ex.Message });
             }
         }
+        private Guid GetUserIdFromUsername(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return Guid.Empty;
+            // Generate a deterministic Guid based on the username string so it's always the same per user
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] hash = md5.ComputeHash(System.Text.Encoding.Default.GetBytes(username.Trim().ToLower()));
+                return new Guid(hash);
+            }
+        }
     }
+
+    
     public record VoteDto(List<int> OptionIndices, int BettedPoints);
     public record CommentCreateDto(string Content);
 }
