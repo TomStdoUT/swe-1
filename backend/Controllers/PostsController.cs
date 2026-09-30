@@ -4,7 +4,7 @@ using PollSystem.Domain;
 namespace swe_1.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")] // Automatically maps to /api/posts
+    [Route("api/[controller]")]
     public class PostsController : ControllerBase
     {
         private readonly PostManager _manager;
@@ -23,7 +23,7 @@ namespace swe_1.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreatePost([FromBody] PostCreateDto dto)
+        public IActionResult CreatePost([FromBody] PostCreateDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Content))
             {
@@ -31,7 +31,6 @@ namespace swe_1.Controllers
             }
 
             var post = _manager.CreatePost(_currentUser.Id, _currentUser.Username, dto.Content.Trim());
-            await _manager.SaveStateAsync();
             
             return Ok(post);
         }

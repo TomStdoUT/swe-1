@@ -4,18 +4,17 @@ using PollSystem.Domain;
 namespace swe_1.Controllers
 {
     [ApiController]
-    [Route("api")] // Base route is just /api for these specific endpoints
+    [Route("api")]
     public class UsersController : ControllerBase
     {
         private readonly User _currentUser;
 
-        // The Singleton User is injected automatically by Program.cs
         public UsersController(User currentUser)
         {
             _currentUser = currentUser;
         }
 
-        [HttpPost("login")] // Maps to /api/login
+        [HttpPost("login")]
         public IActionResult Login([FromBody] LoginDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Username) || dto.Username.Trim().Length > 40)
@@ -27,7 +26,7 @@ namespace swe_1.Controllers
             return Ok(new { _currentUser.Username, _currentUser.PointsBalance });
         }
 
-        [HttpGet("user")] // Maps to /api/user
+        [HttpGet("user")]
         public IActionResult GetUser()
         {
             return Ok(new { _currentUser.Username, _currentUser.PointsBalance });

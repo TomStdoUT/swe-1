@@ -5,33 +5,25 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace PollSystem.Domain
 {
-
     // Represents a user with points
     public class User
     {
         public Guid Id { get; init; } = Guid.NewGuid();
         public string Username { get; set; } = string.Empty;
-        public int PointsBalance { get; set; } = 100; // Default starting balance
+        public int PointsBalance { get; set; } = 100;
 
         public User() { }
 
         public User(string username, int initialPoints = 100)
         {
-            if (string.IsNullOrWhiteSpace(username))
-            {
-                throw new ArgumentException("Username cannot be empty.", nameof(username));
-            }
-
+            if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("Username cannot be empty.", nameof(username));
             Username = username;
             PointsBalance = initialPoints;
         }
     }
-
 
     // Record representing a poll choice
     public record PollOption(string text);
@@ -40,13 +32,13 @@ namespace PollSystem.Domain
     public readonly struct Vote
     {
         public Guid UserId { get; }
-        public int OptionIndex { get; }
+        public List<int> OptionIndices { get; }
         public int BettedPoints { get; }
 
-        public Vote(Guid userId, int optionIndex, int pointsBet = 0)
+        public Vote(Guid userId, List<int> optionIndices, int pointsBet = 0)
         {
             UserId = userId;
-            OptionIndex = optionIndex;
+            OptionIndices = optionIndices ?? new List<int>();
             BettedPoints = pointsBet;
         }
     }
@@ -54,10 +46,7 @@ namespace PollSystem.Domain
     // Extension method to check if a poll's time limit has expired
     public static class PollExtension
     {
-        public static bool IsClosed(this Poll poll)
-        {
-            return DateTime.UtcNow >= poll.ClosingTime;
-        }
+        public static bool IsClosed(this Poll poll) => DateTime.UtcNow >= poll.ClosingTime;
     }
 
     // Poll Domain Model supporting custom time limits
@@ -71,35 +60,61 @@ namespace PollSystem.Domain
         public List<PollOption> Options { get; set; } = new();
         public DateTime ClosingTime { get; set; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+        public bool AllowMultiple { get; set; }
 
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
 
-        public void CastVote(User user, Vote vote)
+        public bool CastVote(User user, Vote vote)
         {
-            if (this.IsClosed())
-            {
-                throw new InvalidOperationException("Voting for this poll has ended.");
-            }
+            if (this.IsClosed()) throw new InvalidOperationException("Voting for this poll has ended.");
+            
+if (!vote.OptionIndices.Any())
+                throw new ArgumentException("You must select at least one option.");
 
-            if (vote.OptionIndex < 0 || vote.OptionIndex >= Options.Count)
+            if (!AllowMultiple && vote.OptionIndices.Count > 1)
+                throw new InvalidOperationException("This poll only allows a single choice.");
+
+            foreach (var index in vote.OptionIndices)
             {
-                throw new ArgumentOutOfRangeException(nameof(vote.OptionIndex), "Option doesn't exist, invalid option selected.");
+                if (index < 0 || index >= Options.Count)
+                    throw new ArgumentOutOfRangeException(nameof(vote.OptionIndices), "Option doesn't exist.");
             }
 
             if (vote.BettedPoints > 0)
             {
                 if (user.PointsBalance < vote.BettedPoints)
-                {
-                    throw new InvalidOperationException("Insufficient points balance to place this bet.");
-                }
+                    throw new InvalidOperationException("Insufficient points balance.");
 
                 user.PointsBalance -= vote.BettedPoints;
             }
 
             _votes.Add(vote);
+
+            // Count all the votes in the poll
+            var voteCounts = new Dictionary<int, int>();
+            foreach (var v in _votes)
+            {
+                foreach (var idx in v.OptionIndices)
+                {
+                    if (!voteCounts.ContainsKey(idx)) voteCounts[idx] = 0;
+                    voteCounts[idx]++;
+                }
+            }
+            
+            int maxVotes = voteCounts.Any() ? voteCounts.Values.Max() : 0;
+            var winningIndices = voteCounts.Where(kv => kv.Value == maxVotes).Select(kv => kv.Key).ToList();
+            bool isWinner = vote.OptionIndices.Any(idx => winningIndices.Contains(idx));
+
+            if (isWinner && vote.BettedPoints > 0)
+            {
+                user.PointsBalance += (vote.BettedPoints * 2);
+            }
+
+            return isWinner;
         }
 
+        // MISSING METHODS RESTORED HERE
         public bool Equals(Poll? other) => other != null && Id == other.Id;
         public int CompareTo(Poll? other) => ClosingTime.CompareTo(other?.ClosingTime);
     }
@@ -109,17 +124,10 @@ namespace PollSystem.Domain
     {
         private readonly List<Poll> _polls = new();
 
-        public Poll CreatePoll(Guid creatorId, string question, string category, List<string> tags, List<PollOption> options, DateTime closingTime)
+        public Poll CreatePoll(Guid creatorId, string question, string category, List<string> tags, List<PollOption> options, DateTime closingTime, bool allowMultiple)
         {
-            if (closingTime <= DateTime.UtcNow)
-            {
-                throw new ArgumentException("The closing time should be set in the future.");
-            }
-
-            if (options == null || options.Count < 2 || options.Count > 6)
-            {
-                throw new ArgumentException("A poll requires between 2 and 6 options.");
-            }
+            if (closingTime <= DateTime.UtcNow) throw new ArgumentException("The closing time should be set in the future.");
+            if (options == null || options.Count < 2 || options.Count > 6) throw new ArgumentException("A poll requires between 2 and 6 options.");
 
             var poll = new Poll
             {
@@ -128,17 +136,17 @@ namespace PollSystem.Domain
                 Category = category,
                 Tags = tags,
                 Options = options,
-                ClosingTime = closingTime
+                ClosingTime = closingTime,
+                AllowMultiple = allowMultiple 
             };
 
             _polls.Add(poll);
             return poll;
         }
 
-        public IEnumerable<Poll> GetCreatorPolls(Guid creatorId)
-        {
-            return _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
-        }
+        public IEnumerable<Poll> GetCreatorPolls(Guid creatorId) => _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
+        
+        public IEnumerable<Poll> GetAllPolls() => _polls.OrderByDescending(p => p.ClosingTime);
 
         public async Task SaveStateAsync(string filePath = "poll_snapshot.json")
         {
@@ -147,12 +155,38 @@ namespace PollSystem.Domain
             await JsonSerializer.SerializeAsync(stream, _polls, options);
         }
 
+        public async Task LoadStateAsync(string filePath = "poll_snapshot.json")
+        {
+            if (!File.Exists(filePath)) return;
+
+            using FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var loadedPolls = await JsonSerializer.DeserializeAsync<List<Poll>>(stream);
+        
+            if (loadedPolls != null)
+            {
+                _polls.Clear();
+                _polls.AddRange(loadedPolls);
+            }
+        }
+
+        public async Task<bool> DeletePollAsync(Guid pollId)
+        {
+            var poll = _polls.FirstOrDefault(p => p.Id == pollId);
+            if (poll != null)
+            {
+                _polls.Remove(poll);
+                await SaveStateAsync();
+                return true;
+            }
+            return false;
+        }
+
         public IEnumerator<Poll> GetEnumerator() => _polls.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
-
-    // Data transfer object for requests from react
-    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int BettedPoints);
+ 
+    // MISSING DTOS RESTORED HERE
+    public record PollCreateDto(string Question, string Category, List<string> Tags, List<string> Options, int DurationSeconds, bool AllowMultiple);
     public record LoginDto(string Username, string? Password = null);
     public record PostCreateDto(string Content);
 }
