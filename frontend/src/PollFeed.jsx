@@ -174,6 +174,38 @@ function FullPollCard({ poll, onVote, onDelete }) {
   const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
   const [hasVoted, setHasVoted] = useState(!!existingVote);
   const [isVoting, setIsVoting] = useState(false);
+
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState(poll.comments || []);
+  const [commentText, setCommentText] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+
+    setIsSubmittingComment(true);
+    try {
+        const response = await fetch(`/api/polls/${poll.id}/comments`, {        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: commentText.trim() }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'Failed to add comment.');
+        return;
+      }
+
+      const newComment = await response.json();
+      setComments((prev) => [...prev, newComment]);
+      setCommentText('');
+    } catch (error) {
+      alert('Error submitting comment.');
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
   
   const [isClosed, setIsClosed] = useState(
     new Date().getTime() >= new Date(poll.closingTime).getTime()
@@ -312,6 +344,59 @@ function FullPollCard({ poll, onVote, onDelete }) {
             : `Incorrect. Your choice has lost. You have lost your betted points.`}
         </div>
       )}
+
+    {/* Comments Toggle Button */}
+      <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+        <button
+          onClick={() => setShowComments(!showComments)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--accent)',
+            cursor: 'pointer',
+            padding: 0,
+            fontSize: '14px',
+            fontWeight: 'bold',
+          }}
+        >
+          {showComments ? 'Hide Comments' : `Comments (${comments.length})`}
+        </button>
+
+        {/* Collapsible Comments Section */}
+        {showComments && (
+          <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+              {comments.length === 0 ? (
+                <p style={{ fontSize: '13px', color: 'var(--text)', fontStyle: 'italic' }}>No comments yet. Be the first to comment!</p>
+              ) : (
+                comments.map((c, i) => (
+                  <div key={c.id || i} style={{ background: 'var(--code-bg)', padding: '8px 12px', borderRadius: '6px', fontSize: '14px' }}>
+                    <strong>{c.authorName}: </strong>
+                    <span>{c.content}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleAddComment} style={{ display: 'flex', gap: '8px', marginTop: '5px' }}>
+              <input
+                type="text"
+                placeholder="Write a comment..."
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border)' }}
+              />
+              <button
+                type="submit"
+                disabled={isSubmittingComment || !commentText.trim()}
+                style={{ padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                Post
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

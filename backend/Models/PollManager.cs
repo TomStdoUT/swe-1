@@ -62,6 +62,8 @@ namespace PollSystem.Domain
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
         public bool AllowMultiple { get; set; }
 
+        public List<Comment> Comments { get; set; } = new();
+
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
 
@@ -147,6 +149,15 @@ if (!vote.OptionIndices.Any())
         public IEnumerable<Poll> GetCreatorPolls(Guid creatorId) => _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
         
         public IEnumerable<Poll> GetAllPolls() => _polls.OrderByDescending(p => p.ClosingTime);
+        
+        public Comment AddComment(Guid pollId, Guid authorId, string authorName, string content)
+        {
+            var poll = _polls.FirstOrDefault(p => p.Id == pollId);
+            if (poll == null) throw new KeyNotFoundException("Poll not found.");
+            var comment = new Comment(authorId, authorName, content);
+            poll.Comments.Add(comment);
+            return comment;
+        }
 
         public async Task SaveStateAsync(string filePath = "poll_snapshot.json")
         {

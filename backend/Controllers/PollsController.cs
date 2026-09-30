@@ -88,6 +88,26 @@ namespace swe_1.Controllers
             return Ok(new { message = "Apklausa sėkmingai ištrinta." });
         }
     
+        [HttpPost("{id}/comments")]
+        public async Task<IActionResult> AddComment(Guid id, [FromBody] CommentCreateDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Content))
+            {
+                return BadRequest(new { error = "Comment content cannot be empty." });
+            }
+
+            try
+            {
+                var comment = _manager.AddComment(id, _currentUser.Id, _currentUser.Username, dto.Content.Trim());
+                await _manager.SaveStateAsync();
+                return Ok(comment);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+        }
     }
     public record VoteDto(List<int> OptionIndices, int BettedPoints);
+    public record CommentCreateDto(string Content);
 }
