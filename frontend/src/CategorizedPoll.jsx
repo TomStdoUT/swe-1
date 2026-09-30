@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const CATEGORIES = ['Sport', 'Technology', 'Politics', 'Fun', 'Other'];
 
-export function CategorizedPoll({ onPollCreated }) {
+export function CategorizedPoll({ username, onPollCreated }) {
   const [question, setQuestion] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
@@ -18,7 +18,9 @@ export function CategorizedPoll({ onPollCreated }) {
   const [durSecs, setDurSecs] = useState(0);
 
   useEffect(() => {
-    fetch('/api/user')
+    fetch('/api/user', {
+      headers: { 'X-Username': username },
+    })
       .then((res) => res.json())
       .then((data) => {
         if (data.pointsBalance !== undefined) {
@@ -26,7 +28,7 @@ export function CategorizedPoll({ onPollCreated }) {
         }
       })
       .catch((err) => console.error('Error fetching user points:', err));
-  }, []);
+  }, [username]);
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -68,7 +70,10 @@ export function CategorizedPoll({ onPollCreated }) {
     try {
       const response = await fetch('/api/polls', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Username': username,
+        },
         body: JSON.stringify(pollData),
       });
 

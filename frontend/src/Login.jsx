@@ -25,7 +25,7 @@ export function Login({ onLogin }) {
         );
         return;
       }
-      onLogin(result.username, result.pointsBalance);    
+      onLogin(result);
     } catch {
       setError('Could not reach the app server. Make sure both servers are running.');
     } finally {

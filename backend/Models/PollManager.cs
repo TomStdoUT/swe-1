@@ -148,6 +148,43 @@ if (!vote.OptionIndices.Any())
         
         public IEnumerable<Poll> GetAllPolls() => _polls.OrderByDescending(p => p.ClosingTime);
 
+        public (int CorrectPredictions, int TotalResolvedVotes) GetAccuracyStats(Guid userId)
+        {
+            var correctPredictions = 0;
+            var totalResolvedVotes = 0;
+
+            foreach (var poll in _polls.Where(p => p.IsClosed()))
+            {
+                var votes = poll.Votes.ToList();
+                var voteCounts = votes
+                    .SelectMany(vote => vote.OptionIndices)
+                    .GroupBy(optionIndex => optionIndex)
+                    .ToDictionary(group => group.Key, group => group.Count());
+
+                if (voteCounts.Count == 0)
+                {
+                    continue;
+                }
+
+                var highestVoteCount = voteCounts.Values.Max();
+                var winningOptions = voteCounts
+                    .Where(entry => entry.Value == highestVoteCount)
+                    .Select(entry => entry.Key)
+                    .ToHashSet();
+
+                foreach (var vote in votes.Where(vote => vote.UserId == userId))
+                {
+                    totalResolvedVotes++;
+                    if (vote.OptionIndices.Any(winningOptions.Contains))
+                    {
+                        correctPredictions++;
+                    }
+                }
+            }
+
+            return (correctPredictions, totalResolvedVotes);
+        }
+
         public async Task SaveStateAsync(string filePath = "poll_snapshot.json")
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
