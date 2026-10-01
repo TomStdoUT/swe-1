@@ -221,7 +221,8 @@ function FullPollCard({ poll, onVote, onDelete, userId }) {
 
     setIsSubmittingComment(true);
     try {
-        const response = await fetch(`/api/polls/${poll.id}/comments`, {        method: 'POST',
+        const response = await fetch(`/api/polls/${poll.id}/comments`, {        
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: commentText.trim() }),
       });
