@@ -47,7 +47,7 @@ function TimerAndProgress({ createdAt, closingTime }) {
   );
 }
 
-export function MiniFeed({ onNavigate, refreshTrigger }) {
+export function MiniFeed({ onNavigate, refreshTrigger, username, userId }) {
   const [polls, setPolls] = useState([]);
 
   useEffect(() => {
@@ -62,14 +62,17 @@ export function MiniFeed({ onNavigate, refreshTrigger }) {
   const handleDelete = async (pollId) => {
     if (window.confirm('Are you sure you want to delete this poll?')) {
       try {
-        const response = await fetch(`/api/polls/${pollId}`, { method: 'DELETE' });
+        const response = await fetch(`/api/polls/${pollId}`, {
+          method: 'DELETE',
+          headers: { 'X-Username': username },
+        });
         if (response.ok) {
           setPolls(polls.filter(p => p.id !== pollId));
         } else {
           const data = await response.json();
           alert(data.error);
         }
-      } catch (error) {
+      } catch {
         alert('Error deleting poll.');
       }
     }
@@ -87,13 +90,14 @@ export function MiniFeed({ onNavigate, refreshTrigger }) {
         {polls.map(poll => (
           <div key={poll.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', marginBottom: '16px', position: 'relative' }}>
             
-            {/* Delete Button (Top Right) */}
-            <button 
-              onClick={() => handleDelete(poll.id)}
-              style={{ position: 'absolute', top: '10px', right: '10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px' }}
-            >
-              Delete
-            </button>
+            {poll.creatorId === userId && (
+              <button
+                onClick={() => handleDelete(poll.id)}
+                style={{ position: 'absolute', top: '10px', right: '10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px' }}
+              >
+                Delete
+              </button>
+            )}
 
             <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', paddingRight: '50px' }}>{poll.question}</h3>
             <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
@@ -105,7 +109,7 @@ export function MiniFeed({ onNavigate, refreshTrigger }) {
 }
 
 // --- FULL FEED ---
-export function FullFeed({ onNavigate, onVoteCast }) {
+export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
   const [polls, setPolls] = useState([]);
 
   const loadPolls = () => {
@@ -126,9 +130,9 @@ export function FullFeed({ onNavigate, onVoteCast }) {
       const activeUsername = sessionStorage.getItem('poll-username'); // Read straight from session storage
       const response = await fetch(`/api/polls/${pollId}/vote`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'X-Username': activeUsername || '' 
+          'X-Username': username,
         },
         body: JSON.stringify({ optionIndices, bettedPoints }) 
       });
@@ -152,14 +156,17 @@ export function FullFeed({ onNavigate, onVoteCast }) {
   const handleDelete = async (pollId) => {
     if (window.confirm('Are you sure you want to delete this polls? All your user choices will be lost.')) {
       try {
-        const response = await fetch(`/api/polls/${pollId}`, { method: 'DELETE' });
+        const response = await fetch(`/api/polls/${pollId}`, {
+          method: 'DELETE',
+          headers: { 'X-Username': username },
+        });
         if (response.ok) {
           setPolls(polls.filter(p => p.id !== pollId));
         } else {
           const data = await response.json();
           alert(data.error);
         }
-      } catch (error) {
+      } catch {
         alert('Error deleting poll.');
       }
     }
@@ -175,15 +182,21 @@ export function FullFeed({ onNavigate, onVoteCast }) {
       </div>
 
       {polls.map(poll => (
-        <FullPollCard key={poll.id} poll={poll} onVote={handleVote} onDelete={handleDelete} />
+        <FullPollCard
+          key={poll.id}
+          poll={poll}
+          onVote={handleVote}
+          onDelete={handleDelete}
+          userId={userId}
+        />
       ))}
     </div>
   );
 }
 
 // --- FULL POLL CARD ---
-function FullPollCard({ poll, onVote, onDelete }) {
-  const existingVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
+function FullPollCard({ poll, onVote, onDelete, userId }) {
+  const existingVote = poll.votes?.find((vote) => vote.userId === userId) || null;
   const [selectedOptions, setSelectedOptions] = useState(existingVote ? existingVote.optionIndices : []);
   const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
   const [hasVoted, setHasVoted] = useState(!!existingVote);
@@ -288,12 +301,14 @@ function FullPollCard({ poll, onVote, onDelete }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>
       
-      <button 
-        onClick={() => onDelete(poll.id)}
-        style={{ position: 'absolute', top: '24px', right: '24px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontWeight: 'bold' }}
-      >
-        Delete
-      </button>
+      {poll.creatorId === userId && (
+        <button
+          onClick={() => onDelete(poll.id)}
+          style={{ position: 'absolute', top: '24px', right: '24px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          Delete
+        </button>
+      )}
 
       <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>
       <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>

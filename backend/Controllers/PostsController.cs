@@ -8,12 +8,12 @@ namespace swe_1.Controllers
     public class PostsController : ControllerBase
     {
         private readonly PostManager _manager;
-        private readonly User _currentUser;
+        private readonly UserManager _users;
 
-        public PostsController(PostManager manager, User currentUser)
+        public PostsController(PostManager manager, UserManager users)
         {
             _manager = manager;
-            _currentUser = currentUser;
+            _users = users;
         }
 
         [HttpGet]
@@ -23,14 +23,20 @@ namespace swe_1.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreatePost([FromBody] PostCreateDto dto)
+        public IActionResult CreatePost(
+            [FromHeader(Name = "X-Username")] string? username,
+            [FromBody] PostCreateDto dto
+        )
         {
+            var currentUser = _users.Find(username);
+            if (currentUser is null) return Unauthorized();
+
             if (string.IsNullOrWhiteSpace(dto.Content))
             {
                 return BadRequest(new { error = "Post content cannot be empty." });
             }
 
-            var post = _manager.CreatePost(_currentUser.Id, _currentUser.Username, dto.Content.Trim());
+            var post = _manager.CreatePost(currentUser.Id, currentUser.Username, dto.Content.Trim());
             
             return Ok(post);
         }

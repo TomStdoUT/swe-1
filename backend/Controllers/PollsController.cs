@@ -8,12 +8,12 @@ namespace swe_1.Controllers
     public class PollsController : ControllerBase
     {
         private readonly PollManager _manager;
-        private readonly User _currentUser;
+        private readonly UserManager _users;
 
-        public PollsController(PollManager manager, User currentUser)
+        public PollsController(PollManager manager, UserManager users)
         {
             _manager = manager;
-            _currentUser = currentUser;
+            _users = users;
         }
 
         [HttpGet]
@@ -44,15 +44,21 @@ namespace swe_1.Controllers
         }
         
  [HttpPost]
-        public async Task<IActionResult> CreatePoll([FromBody] PollCreateDto dto)
+        public async Task<IActionResult> CreatePoll(
+            [FromHeader(Name = "X-Username")] string? username,
+            [FromBody] PollCreateDto dto
+        )
         {
+            var currentUser = _users.Find(username);
+            if (currentUser is null) return Unauthorized();
+
             try 
             {
                 // Revert to standard string mapping
                 var pollOptions = dto.Options.Select(opt => new PollOption(opt)).ToList();
 
                 _manager.CreatePoll(
-                    _currentUser.Id,
+                    currentUser.Id,
                     dto.Question,
                     dto.Category,
                     dto.Tags,
@@ -65,7 +71,7 @@ namespace swe_1.Controllers
                 
                 return Ok(new {
                     message = "Apklausa sukurta sėkmingai!", 
-                    remainingPoints = _currentUser.PointsBalance 
+                    remainingPoints = currentUser.PointsBalance
                 });
             }
             catch (Exception ex)
@@ -75,32 +81,27 @@ namespace swe_1.Controllers
         }
 
         [HttpPost("{id}/vote")]
-        public async Task<IActionResult> Vote(Guid id, [FromBody] VoteDto dto)
+        public async Task<IActionResult> Vote(
+            Guid id,
+            [FromHeader(Name = "X-Username")] string? username,
+            [FromBody] VoteDto dto
+        )
         {
-            var username = Request.Headers["X-Username"].ToString();
-            var userId = GetUserIdFromUsername(username);
-
-            if (userId == Guid.Empty)
-            {
-                return BadRequest(new { error = "Invalid user session." });
-            }
+            var currentUser = _users.Find(username);
+            if (currentUser is null) return Unauthorized();
 
             var poll = _manager.FirstOrDefault(p => p.Id == id);
             if (poll == null) return NotFound(new { error = "Poll not found." });
 
             try
             {
-                // Create a temporary user object with the correct Id and Username for casting
-                var votingUser = new User(username, _currentUser.PointsBalance) { Id = userId };
+                var vote = new Vote(currentUser.Id, dto.OptionIndices, dto.BettedPoints);
                 
-                var vote = new Vote(userId, dto.OptionIndices, dto.BettedPoints);
-                poll.CastVote(votingUser, vote);
-
-                // Sync back points balance if needed
-                _currentUser.PointsBalance = votingUser.PointsBalance;
+                poll.CastVote(currentUser, vote);
 
                 await _manager.SaveStateAsync();
-                return Ok(new { message = "Vote accepted!", remainingPoints = votingUser.PointsBalance });
+                await _users.SaveStateAsync();
+                return Ok(new { message = "Vote accepted!", remainingPoints = currentUser.PointsBalance });
             }
             catch (Exception ex)
             {
@@ -108,15 +109,23 @@ namespace swe_1.Controllers
             }
         }
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePoll(Guid id)
+        public async Task<IActionResult> DeletePoll(
+            Guid id,
+            [FromHeader(Name = "X-Username")] string? username
+        )
         {
-            var success = await _manager.DeletePollAsync(id);
-            
-            if (!success)
+            var currentUser = _users.Find(username);
+            if (currentUser is null) return Unauthorized();
+
+            var poll = _manager.FirstOrDefault(p => p.Id == id);
+            if (poll is null)
             {
                 return NotFound(new { error = "Apklausa nerasta arba jau ištrinta." });
             }
 
+            if (poll.CreatorId != currentUser.Id) return Forbid();
+
+            await _manager.DeletePollAsync(id);
             return Ok(new { message = "Apklausa sėkmingai ištrinta." });
         }
     
