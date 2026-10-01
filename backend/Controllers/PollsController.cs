@@ -20,7 +20,8 @@ namespace swe_1.Controllers
         public IActionResult GetAllPolls()
         {
             var username = Request.Headers["X-Username"].ToString();
-            var activeUserId = GetUserIdFromUsername(username);
+            var currentUser = _users.Find(username);
+            var activeUserId = currentUser?.Id ?? GetUserIdFromUsername(username);
 
             var polls = _manager.GetAllPolls();
 

@@ -132,7 +132,7 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Username': username,
+          'X-Username': activeUsername || '',
         },
         body: JSON.stringify({ optionIndices, bettedPoints }) 
       });
@@ -196,7 +196,7 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
 
 // --- FULL POLL CARD ---
 function FullPollCard({ poll, onVote, onDelete, userId }) {
-  const existingVote = poll.votes?.find((vote) => vote.userId === userId) || null;
+  const existingVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
   const [selectedOptions, setSelectedOptions] = useState(existingVote ? existingVote.optionIndices : []);
   const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
   const [hasVoted, setHasVoted] = useState(!!existingVote);
@@ -219,11 +219,15 @@ function FullPollCard({ poll, onVote, onDelete, userId }) {
     e.preventDefault();
     if (!commentText.trim()) return;
 
-    setIsSubmittingComment(true);
+setIsSubmittingComment(true);
     try {
-        const response = await fetch(`/api/polls/${poll.id}/comments`, {        
+      const activeUsername = sessionStorage.getItem('poll-username');
+      const response = await fetch(`/api/polls/${poll.id}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Username': activeUsername || ''
+        },
         body: JSON.stringify({ content: commentText.trim() }),
       });
 
