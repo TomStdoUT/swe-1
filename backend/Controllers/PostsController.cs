@@ -40,5 +40,23 @@ namespace swe_1.Controllers
             
             return Ok(post);
         }
+        [HttpPost("{id}/comments")]
+        public IActionResult AddComment(Guid id, [FromBody] CommentCreateDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Content))
+            {
+                return BadRequest(new { error = "Comment content cannot be empty." });
+            }
+
+            try
+            {
+                var comment = _manager.AddComment(id, _currentUser.Id, _currentUser.Username, dto.Content.Trim());
+                return Ok(comment);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+        }
     }
 }

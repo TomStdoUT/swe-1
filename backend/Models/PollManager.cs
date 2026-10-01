@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace PollSystem.Domain
@@ -29,12 +30,13 @@ namespace PollSystem.Domain
     public record PollOption(string text);
 
     // Readonly struct representing a vote
-    public readonly struct Vote
+    public struct Vote
     {
-        public Guid UserId { get; }
-        public List<int> OptionIndices { get; }
-        public int BettedPoints { get; }
+        public Guid UserId { get; set; }
+        public List<int> OptionIndices { get; set; } = new();
+        public int BettedPoints { get; set; }
 
+        public Vote() { }
         public Vote(Guid userId, List<int> optionIndices, int pointsBet = 0)
         {
             UserId = userId;
@@ -62,6 +64,10 @@ namespace PollSystem.Domain
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
         public bool AllowMultiple { get; set; }
 
+        public List<Comment> Comments { get; set; } = new();
+
+        [JsonInclude]
+        
         private readonly List<Vote> _votes = new();
         public IEnumerable<Vote> Votes => _votes.AsReadOnly();
 
@@ -147,6 +153,15 @@ if (!vote.OptionIndices.Any())
         public IEnumerable<Poll> GetCreatorPolls(Guid creatorId) => _polls.Where(p => p.CreatorId == creatorId).OrderByDescending(p => p.ClosingTime);
         
         public IEnumerable<Poll> GetAllPolls() => _polls.OrderByDescending(p => p.ClosingTime);
+        
+        public Comment AddComment(Guid pollId, Guid authorId, string authorName, string content)
+        {
+            var poll = _polls.FirstOrDefault(p => p.Id == pollId);
+            if (poll == null) throw new KeyNotFoundException("Poll not found.");
+            var comment = new Comment(authorId, authorName, content);
+            poll.Comments.Add(comment);
+            return comment;
+        }
 
         public (int CorrectPredictions, int TotalResolvedVotes) GetAccuracyStats(Guid userId)
         {

@@ -61,6 +61,8 @@ function App() {
           onClick={() => {
             sessionStorage.removeItem('poll-username');
             setUsername(null);
+            setUserPoints(100);
+            setRefreshTrigger(prev => prev + 1);
           }}
         >
           Log out

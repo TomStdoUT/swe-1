@@ -19,9 +19,28 @@ namespace swe_1.Controllers
         [HttpGet]
         public IActionResult GetAllPolls()
         {
-    
-        return Ok(_manager.GetAllPolls());
-    
+            var username = Request.Headers["X-Username"].ToString();
+            var activeUserId = GetUserIdFromUsername(username);
+
+            var polls = _manager.GetAllPolls();
+
+            var userPolls = polls.Select(p => new
+            {
+                p.Id,
+                p.CreatorId,
+                p.Question,
+                p.Category,
+                p.Tags,
+                p.Options,
+                p.ClosingTime,
+                p.CreatedAt,
+                p.AllowMultiple,
+                p.Comments,
+                Votes = p.Votes.Where(v => v.UserId == activeUserId).ToList(),
+                TotalVotesCount = p.Votes.Count()
+            });
+
+            return Ok(userPolls);
         }
         
  [HttpPost]
@@ -110,6 +129,38 @@ namespace swe_1.Controllers
             return Ok(new { message = "Apklausa sėkmingai ištrinta." });
         }
     
+        [HttpPost("{id}/comments")]
+        public async Task<IActionResult> AddComment(Guid id, [FromBody] CommentCreateDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Content))
+            {
+                return BadRequest(new { error = "Comment content cannot be empty." });
+            }
+
+            try
+            {
+                var comment = _manager.AddComment(id, _currentUser.Id, _currentUser.Username, dto.Content.Trim());
+                await _manager.SaveStateAsync();
+                return Ok(comment);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+        }
+        private Guid GetUserIdFromUsername(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return Guid.Empty;
+            // Generate a deterministic Guid based on the username string so it's always the same per user
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] hash = md5.ComputeHash(System.Text.Encoding.Default.GetBytes(username.Trim().ToLower()));
+                return new Guid(hash);
+            }
+        }
     }
+
+    
     public record VoteDto(List<int> OptionIndices, int BettedPoints);
+    public record CommentCreateDto(string Content);
 }
