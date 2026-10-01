@@ -1,0 +1,86 @@
+.profiles-page {
+  width: min(100%, 900px);
+  margin: 32px auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.profiles-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.profiles-heading h1 {
+  margin: 0 0 4px;
+  font-size: 32px;
+  letter-spacing: -0.8px;
+}
+
+.profiles-heading button {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-h);
+  background: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.profile-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.profile-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.profile-card h2 {
+  margin: 0 0 16px;
+}
+
+.profile-card dl,
+.profile-card dl div {
+  margin: 0;
+}
+
+.profile-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.profile-card dt {
+  color: var(--text);
+}
+
+.profile-card dd {
+  margin: 0;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.profiles-error {
+  margin-bottom: 16px;
+  color: #dc2626;
+}
+
+@media (max-width: 480px) {
+  .profiles-heading {
+    align-items: flex-start;
+  }
+
+  .profiles-heading h1 {
+    font-size: 26px;
+  }
+}
