@@ -20,7 +20,8 @@ namespace swe_1.Controllers
         public IActionResult GetAllPolls()
         {
             var username = Request.Headers["X-Username"].ToString();
-            var activeUserId = GetUserIdFromUsername(username);
+            var currentUser = _users.Find(username);
+            var activeUserId = currentUser?.Id ?? GetUserIdFromUsername(username);
 
             var polls = _manager.GetAllPolls();
 
@@ -130,8 +131,14 @@ namespace swe_1.Controllers
         }
     
         [HttpPost("{id}/comments")]
-        public async Task<IActionResult> AddComment(Guid id, [FromBody] CommentCreateDto dto)
+        public async Task<IActionResult> AddComment(
+            Guid id, 
+            [FromHeader(Name = "X-Username")] string? username, 
+            [FromBody] CommentCreateDto dto)
         {
+            var currentUser = _users.Find(username);
+            if (currentUser is null) return Unauthorized();
+
             if (string.IsNullOrWhiteSpace(dto.Content))
             {
                 return BadRequest(new { error = "Comment content cannot be empty." });
@@ -139,7 +146,7 @@ namespace swe_1.Controllers
 
             try
             {
-                var comment = _manager.AddComment(id, _currentUser.Id, _currentUser.Username, dto.Content.Trim());
+                var comment = _manager.AddComment(id, currentUser.Id, currentUser.Username, dto.Content.Trim());
                 await _manager.SaveStateAsync();
                 return Ok(comment);
             }
