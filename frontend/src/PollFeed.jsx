@@ -175,7 +175,7 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
   return (
     <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Visos Apklausos</h1>
+        <h1>Poll feed</h1>
         <button onClick={onNavigate} style={{ padding: '8px 16px', borderRadius: '20px', cursor: 'pointer' }}>
           ← Back to creation
         </button>

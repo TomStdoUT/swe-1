@@ -165,7 +165,7 @@ export function CategorizedPoll({ username, onPollCreated }) {
         <label style={{ display: 'block', textAlign: 'center', marginBottom: '5px' }}>Tags:</label>
         <div style={{ display: 'flex', gap: '5px' }}>
           <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }} placeholder="Enter a tag" style={{ flex: 1, padding: '8px' }} />
-          <button type="button" onClick={handleAddTag}>Pridėti</button>
+          <button type="button" onClick={handleAddTag}>Add</button>
         </div>
         <div style={{ marginTop: '8px', display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'center' }}>
           {tags.map((tag) => (

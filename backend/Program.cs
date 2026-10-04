@@ -13,7 +13,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 
 builder.Services.AddSingleton<PollManager>();
-builder.Services.AddSingleton<PostManager>();
+builder.Services.AddSingleton<NotificationManager>();
 builder.Services.AddSingleton(_ => new UserManager(
     Path.Combine(builder.Environment.ContentRootPath, "users.json")
 ));
