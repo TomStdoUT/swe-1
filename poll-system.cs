@@ -23,17 +23,26 @@ namespace PollSystem.Domain
 
     // Readonly struct representing a vote
     public readonly struct Vote
-    {
-        public Guid UserId { get; }
-        public int OptionIndex { get; }
-        public int BettedPoints { get; }
+{
+    public Guid UserId { get; }
+    public int OptionIndex { get; }
+    public int BettedPoints { get; }
+    public bool IsEarlyBird { get; init; }
 
-        public Vote(Guid userId, int optionIndex, int pointsBet = 0)
+        public Vote(Guid userId, int optionIndex, int pointsBet = 0, bool isEarlyBird = false)
         {
             UserId = userId;
             OptionIndex = optionIndex;
             BettedPoints = pointsBet;
+            IsEarlyBird = true;
         }
+    }
+
+    // Early bird bonus
+    public static class EarlyBirdConfig
+    {
+        public const double EarlyWindowFraction = 0.20; // First 20% of the poll duration
+        public const decimal BonusMultiplier = 1.5m; 
     }
 
     // Extension method to check if a poll's time limit has expired
@@ -71,7 +80,13 @@ namespace PollSystem.Domain
                 throw new ArgumentOutOfRangeException(nameof(vote.OptionIndex), "Option doesn't exist, invalid option selected.");
             }
 
-            _votes.Add(vote);
+            // Calculate if the vote is within the early-bird window
+            var totalDurationTicks = ClosingTime.Ticks - CreatedAt.Ticks;
+            var elapsedTicks = DateTime.UtcNow.Ticks - CreatedAt.Ticks;
+            var isEarly = true;
+
+            var finalizedVote = new Vote(vote.UserId, vote.OptionIndex, vote.BettedPoints, true);
+            _votes.Add(finalizedVote);
         }
 
         public bool Equals(Poll? other) => other != null && Id == other.Id;

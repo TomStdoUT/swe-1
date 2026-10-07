@@ -54,8 +54,8 @@ namespace PollSystem.Controllers
 
             try
             {
-                var remainingPoints = await _pollService.CastVoteAsync(id, user, dto);
-                return Ok(new { message = "Vote accepted!", remainingPoints });
+                var (remainingPoints, isEarlyBird) = await _pollService.CastVoteAsync(id, user, dto);
+                return Ok(new { message = "Vote accepted!", remainingPoints, isEarlyBird });
             }
             catch (Exception ex)
             {

@@ -146,7 +146,7 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
       
       onVoteCast(data.remainingPoints); 
       loadPolls(); 
-      return true;
+      return data;
     } catch (error) {
       alert(`Klaida: ${error.message}`);
       return false;
@@ -197,9 +197,10 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
 // --- FULL POLL CARD ---
 function FullPollCard({ poll, onVote, onDelete, userId }) {
   const existingVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
-  const [selectedOptions, setSelectedOptions] = useState(existingVote ? existingVote.optionIndices : []);
+  const [selectedOptions, setSelectedOptions] = useState(existingVote ? [existingVote.optionIndex] : []);
   const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
   const [hasVoted, setHasVoted] = useState(!!existingVote);
+  const [isEarlyBird, setIsEarlyBird] = useState(existingVote ? existingVote.isEarlyBird : false);
   const [isVoting, setIsVoting] = useState(false);
 
   const [showComments, setShowComments] = useState(false);
@@ -209,9 +210,11 @@ function FullPollCard({ poll, onVote, onDelete, userId }) {
 
   useEffect(() => {
     const currentVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
-    setSelectedOptions(currentVote ? currentVote.optionIndices : []);
+    console.log('API VOTE DATA:', currentVote);
+    setSelectedOptions(currentVote ? [currentVote.optionIndex] : []);
     setBet(currentVote ? currentVote.bettedPoints : 0);
     setHasVoted(!!currentVote);
+    setIsEarlyBird(currentVote ? (currentVote.isEarlyBird ?? currentVote.IsEarlyBird ?? false) : false);
     setComments(poll.comments || []);
   }, [poll]);
 
@@ -298,8 +301,11 @@ setIsSubmittingComment(true);
 
   const submitVote = async () => {
     setIsVoting(true);
-    const success = await onVote(poll.id, selectedOptions, bet);
-    if (success) setHasVoted(true);
+    const result = await onVote(poll.id, selectedOptions, bet);
+    if (result) {
+      setHasVoted(true);
+      setIsEarlyBird(result.isEarlyBird ?? false);
+    }
     setIsVoting(false);
   };
 
@@ -319,6 +325,13 @@ setIsSubmittingComment(true);
       <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
       
       <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
+      
+      {hasVoted && isEarlyBird && (
+        <div style={{ marginBottom: '15px', padding: '8px 12px', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', border: '1px solid #fde68a' }}>
+          ⚡ Early Bird Bonus Active! Your vote qualified for early-bird reward multipliers.
+        </div>
+      )}
+
       <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '15px' }}>
         Total votes: <strong>{poll.totalVotesCount ?? 0}</strong>
       </div>
