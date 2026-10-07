@@ -1,18 +1,19 @@
 using System.Collections.Concurrent;
-using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using PollSystem.Models.Entities;
+using PollSystem.Repositories.Interfaces;
 
-namespace PollSystem.Domain
+namespace PollSystem.Repositories
 {
-    public class UserManager
+    public class UserRepository : IUserRepository
     {
-        private readonly ConcurrentDictionary<string, User> _users =
-            new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, User> _users = new(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _stateLock = new(1, 1);
         private readonly string _stateFilePath;
 
-        public UserManager(string stateFilePath)
+        public UserRepository(string stateFilePath)
         {
             _stateFilePath = stateFilePath;
             GetOrCreate("Povilas");
@@ -20,25 +21,15 @@ namespace PollSystem.Domain
 
         public async Task LoadStateAsync()
         {
-            if (!File.Exists(_stateFilePath))
-            {
-                return;
-            }
+            if (!File.Exists(_stateFilePath)) return;
 
             await _stateLock.WaitAsync();
             try
             {
-                await using var stream = new FileStream(
-                    _stateFilePath,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.Read
-                );
+                await using var stream = new FileStream(_stateFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 var loadedUsers = await JsonSerializer.DeserializeAsync<List<User>>(stream);
-                if (loadedUsers is null)
-                {
-                    return;
-                }
+                
+                if (loadedUsers is null) return;
 
                 _users.Clear();
                 foreach (var user in loadedUsers)
@@ -46,10 +37,7 @@ namespace PollSystem.Domain
                     _users.TryAdd(user.Username, user);
                 }
 
-                if (_users.IsEmpty)
-                {
-                    GetOrCreate("Povilas");
-                }
+                if (_users.IsEmpty) GetOrCreate("Povilas");
             }
             finally
             {
@@ -62,17 +50,8 @@ namespace PollSystem.Domain
             await _stateLock.WaitAsync();
             try
             {
-                await using var stream = new FileStream(
-                    _stateFilePath,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None
-                );
-                await JsonSerializer.SerializeAsync(
-                    stream,
-                    GetAll().ToList(),
-                    new JsonSerializerOptions { WriteIndented = true }
-                );
+                await using var stream = new FileStream(_stateFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                await JsonSerializer.SerializeAsync(stream, GetAll().ToList(), new JsonSerializerOptions { WriteIndented = true });
             }
             finally
             {
@@ -89,13 +68,9 @@ namespace PollSystem.Domain
             });
         }
 
-        public User? Find(string? username)
+        public User? FindByUsername(string? username)
         {
-            if (string.IsNullOrWhiteSpace(username))
-            {
-                return null;
-            }
-
+            if (string.IsNullOrWhiteSpace(username)) return null;
             return _users.GetValueOrDefault(username.Trim());
         }
 

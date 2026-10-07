@@ -1,30 +1,29 @@
 using Microsoft.AspNetCore.Mvc;
-using PollSystem.Domain;
+using PollSystem.Services.Interfaces;
 
-namespace swe_1.Controllers
+namespace PollSystem.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     public class NotificationsController : ControllerBase
     {
-        private readonly NotificationManager _manager;
-        private readonly UserManager _users;
+        private readonly INotificationService _notificationService;
+        private readonly IUserService _userService;
 
-        public NotificationsController(NotificationManager manager, UserManager users)
+        public NotificationsController(INotificationService notificationService, IUserService userService)
         {
-            _manager = manager;
-            _users = users;
+            _notificationService = notificationService;
+            _userService = userService;
         }
 
         [HttpGet]
         public IActionResult GetNotifications([FromHeader(Name = "X-Username")] string? username)
         {
-            // 1. Authenticate the user requesting their notifications
-            var currentUser = _users.Find(username);
-            if (currentUser is null) return Unauthorized();
+            var user = _userService.GetUser(username);
+            if (user == null) return Unauthorized();
 
-            // 2. Return only the notifications targeting their specific ID
-            return Ok(_manager.GetUserNotifications(currentUser.Id));
+            var notifications = _notificationService.GetUserNotifications(user.Id);
+            return Ok(notifications);
         }
     }
 }

@@ -1,79 +1,41 @@
 using Microsoft.AspNetCore.Mvc;
-using PollSystem.Domain;
+using PollSystem.Models.DTOs;
+using PollSystem.Services.Interfaces;
 
-namespace swe_1.Controllers
+namespace PollSystem.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")] 
+    [Route("api/[controller]")]
     public class PollsController : ControllerBase
     {
-        private readonly PollManager _manager;
-        private readonly UserManager _users;
+        private readonly IPollService _pollService;
+        private readonly IUserService _userService;
 
-        public PollsController(PollManager manager, UserManager users)
+        public PollsController(IPollService pollService, IUserService userService)
         {
-            _manager = manager;
-            _users = users;
+            _pollService = pollService;
+            _userService = userService;
         }
 
         [HttpGet]
-        public IActionResult GetAllPolls()
+        public IActionResult GetAllPolls([FromHeader(Name = "X-Username")] string? username)
         {
-            var username = Request.Headers["X-Username"].ToString();
-            var currentUser = _users.Find(username);
-            var activeUserId = currentUser?.Id ?? GetUserIdFromUsername(username);
-
-            var polls = _manager.GetAllPolls();
-
-            var userPolls = polls.Select(p => new
-            {
-                p.Id,
-                p.CreatorId,
-                p.Question,
-                p.Category,
-                p.Tags,
-                p.Options,
-                p.ClosingTime,
-                p.CreatedAt,
-                p.AllowMultiple,
-                p.Comments,
-                Votes = p.Votes.Where(v => v.UserId == activeUserId).ToList(),
-                TotalVotesCount = p.Votes.Count()
-            });
-
-            return Ok(userPolls);
+            var feed = _pollService.GetFeedForUser(username);
+            return Ok(feed);
         }
-        
- [HttpPost]
+
+        [HttpPost]
         public async Task<IActionResult> CreatePoll(
             [FromHeader(Name = "X-Username")] string? username,
-            [FromBody] PollCreateDto dto
-        )
+            [FromBody] PollCreateDto dto)
         {
-            var currentUser = _users.Find(username);
-            if (currentUser is null) return Unauthorized();
+            var user = _userService.GetUser(username);
+            if (user == null) return Unauthorized();
 
-            try 
+            try
             {
-                // Revert to standard string mapping
-                var pollOptions = dto.Options.Select(opt => new PollOption(opt)).ToList();
-
-                _manager.CreatePoll(
-                    currentUser.Id,
-                    dto.Question,
-                    dto.Category,
-                    dto.Tags,
-                    pollOptions, 
-                    DateTime.UtcNow.AddSeconds(dto.DurationSeconds),
-                    dto.AllowMultiple
-                );
-                
-                await _manager.SaveStateAsync();
-                
-                return Ok(new {
-                    message = "Apklausa sukurta sėkmingai!", 
-                    remainingPoints = currentUser.PointsBalance
-                });
+                await _pollService.CreatePollAsync(user.Id, dto);
+                return Ok(new { message = "Apklausa sukurta sėkmingai!", remainingPoints = user.PointsBalance });
             }
             catch (Exception ex)
             {
@@ -85,59 +47,51 @@ namespace swe_1.Controllers
         public async Task<IActionResult> Vote(
             Guid id,
             [FromHeader(Name = "X-Username")] string? username,
-            [FromBody] VoteDto dto
-        )
+            [FromBody] VoteDto dto)
         {
-            var currentUser = _users.Find(username);
-            if (currentUser is null) return Unauthorized();
-
-            var poll = _manager.FirstOrDefault(p => p.Id == id);
-            if (poll == null) return NotFound(new { error = "Poll not found." });
+            var user = _userService.GetUser(username);
+            if (user == null) return Unauthorized();
 
             try
             {
-                var vote = new Vote(currentUser.Id, dto.OptionIndices, dto.BettedPoints);
-                
-                poll.CastVote(currentUser, vote);
-
-                await _manager.SaveStateAsync();
-                await _users.SaveStateAsync();
-                return Ok(new { message = "Vote accepted!", remainingPoints = currentUser.PointsBalance });
+                var remainingPoints = await _pollService.CastVoteAsync(id, user, dto);
+                return Ok(new { message = "Vote accepted!", remainingPoints });
             }
             catch (Exception ex)
             {
                 return BadRequest(new { error = ex.Message });
             }
         }
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePoll(
-            Guid id,
-            [FromHeader(Name = "X-Username")] string? username
-        )
-        {
-            var currentUser = _users.Find(username);
-            if (currentUser is null) return Unauthorized();
 
-            var poll = _manager.FirstOrDefault(p => p.Id == id);
-            if (poll is null)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePoll(Guid id, [FromHeader(Name = "X-Username")] string? username)
+        {
+            var user = _userService.GetUser(username);
+            if (user == null) return Unauthorized();
+
+            try
+            {
+                await _pollService.DeletePollAsync(id, user.Id);
+                return Ok(new { message = "Apklausa sėkmingai ištrinta." });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (KeyNotFoundException)
             {
                 return NotFound(new { error = "Apklausa nerasta arba jau ištrinta." });
             }
-
-            if (poll.CreatorId != currentUser.Id) return Forbid();
-
-            await _manager.DeletePollAsync(id);
-            return Ok(new { message = "Apklausa sėkmingai ištrinta." });
         }
-    
+
         [HttpPost("{id}/comments")]
         public async Task<IActionResult> AddComment(
-            Guid id, 
-            [FromHeader(Name = "X-Username")] string? username, 
+            Guid id,
+            [FromHeader(Name = "X-Username")] string? username,
             [FromBody] CommentCreateDto dto)
         {
-            var currentUser = _users.Find(username);
-            if (currentUser is null) return Unauthorized();
+            var user = _userService.GetUser(username);
+            if (user == null) return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(dto.Content))
             {
@@ -146,8 +100,12 @@ namespace swe_1.Controllers
 
             try
             {
-                var comment = _manager.AddComment(id, currentUser.Id, currentUser.Username, dto.Content.Trim());
-                await _manager.SaveStateAsync();
+                var comment = await _pollService.AddCommentAsync(
+                    id,
+                    user.Id,
+                    user.Username,
+                    dto.Content.Trim()
+                );
                 return Ok(comment);
             }
             catch (KeyNotFoundException ex)
@@ -155,19 +113,5 @@ namespace swe_1.Controllers
                 return NotFound(new { error = ex.Message });
             }
         }
-        private Guid GetUserIdFromUsername(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username)) return Guid.Empty;
-            // Generate a deterministic Guid based on the username string so it's always the same per user
-            using (var md5 = System.Security.Cryptography.MD5.Create())
-            {
-                byte[] hash = md5.ComputeHash(System.Text.Encoding.Default.GetBytes(username.Trim().ToLower()));
-                return new Guid(hash);
-            }
-        }
     }
-
-    
-    public record VoteDto(List<int> OptionIndices, int BettedPoints);
-    public record CommentCreateDto(string Content);
 }

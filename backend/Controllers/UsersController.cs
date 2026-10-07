@@ -1,19 +1,18 @@
 using Microsoft.AspNetCore.Mvc;
-using PollSystem.Domain;
+using PollSystem.Models.DTOs;
+using PollSystem.Services.Interfaces;
 
-namespace swe_1.Controllers
+namespace PollSystem.Controllers
 {
     [ApiController]
     [Route("api")]
     public class UsersController : ControllerBase
     {
-        private readonly UserManager _users;
-        private readonly PollManager _polls;
+        private readonly IUserService _userService;
 
-        public UsersController(UserManager users, PollManager polls)
+        public UsersController(IUserService userService)
         {
-            _users = users;
-            _polls = polls;
+            _userService = userService;
         }
 
         [HttpPost("login")]
@@ -24,55 +23,30 @@ namespace swe_1.Controllers
                 return BadRequest(new { error = "Enter a username of 1 to 40 characters." });
             }
 
-            var user = _users.GetOrCreate(dto.Username);
-            await _users.SaveStateAsync();
-            return Ok(CreateProfile(user));
+            var user = await _userService.LoginAsync(dto.Username);
+            var profile = _userService.GetUserProfile(user.Username);
+            
+            return Ok(profile);
         }
 
         [HttpGet("user")]
         public IActionResult GetUser([FromHeader(Name = "X-Username")] string? username)
         {
-            var user = _users.Find(username);
-            return user is null ? Unauthorized() : Ok(CreateProfile(user));
+            var profile = _userService.GetUserProfile(username);
+            return profile is null ? Unauthorized() : Ok(profile);
         }
 
         [HttpGet("users")]
         public IActionResult GetProfiles()
         {
-            return Ok(_users.GetAll().Select(CreateProfile));
+            return Ok(_userService.GetAllUserProfiles());
         }
 
         [HttpGet("users/{username}")]
         public IActionResult GetProfile(string username)
         {
-            var user = _users.Find(username);
-            return user is null ? NotFound() : Ok(CreateProfile(user));
-        }
-
-        private UserProfileDto CreateProfile(User user)
-        {
-            var (correctPredictions, totalResolvedVotes) = _polls.GetAccuracyStats(user.Id);
-            var accuracyRate = totalResolvedVotes == 0
-                ? (double?)null
-                : Math.Round(correctPredictions * 100.0 / totalResolvedVotes, 1);
-
-            return new UserProfileDto(
-                user.Id,
-                user.Username,
-                user.PointsBalance,
-                correctPredictions,
-                totalResolvedVotes,
-                accuracyRate
-            );
+            var profile = _userService.GetUserProfile(username);
+            return profile is null ? NotFound() : Ok(profile);
         }
     }
-
-    public record UserProfileDto(
-        Guid Id,
-        string Username,
-        int PointsBalance,
-        int CorrectPredictions,
-        int TotalResolvedVotes,
-        double? AccuracyRate
-    );
 }
