@@ -35,6 +35,8 @@ namespace PollSystem.Services
                     p.CreatedAt,
                     p.AllowMultiple,
                     p.Comments,
+                    p.IsResolved,
+                    WinningOptions = p.IsResolved ? p.GetWinningOptions() : new List<int>(),
                     Votes = p.Votes.Where(v => v.UserId == activeUserId).ToList(),
                     TotalVotesCount = p.Votes.Count()
                 });
@@ -43,7 +45,9 @@ namespace PollSystem.Services
         public async Task<Poll> CreatePollAsync(Guid creatorId, PollCreateDto dto)
         {
             var totalSeconds = dto.DurationSeconds;
-            if (totalSeconds < 60) throw new ArgumentException("Poll must be at least 60 seconds.");
+
+            if (totalSeconds < 60)
+                throw new ArgumentException("Poll must be at least 60 seconds.");
 
             var poll = new Poll
             {
@@ -64,26 +68,75 @@ namespace PollSystem.Services
         public async Task<(int remainingPoints, bool isEarlyBird)> CastVoteAsync(Guid pollId, User user, VoteDto dto)
         {
             var poll = _pollRepo.GetById(pollId);
-            if (poll == null) throw new KeyNotFoundException("Poll not found.");
+
+            if (poll == null)
+                throw new KeyNotFoundException("Poll not found.");
 
             var vote = new Vote(user.Id, dto.OptionIndices, dto.BettedPoints);
 
-            var result = poll.CastVote(user, vote);
+            poll.CastVote(user, vote);
+
+            var processedVote = poll.Votes.Last(v => v.UserId == user.Id);
 
             await _pollRepo.SaveStateAsync();
             await _userRepo.SaveStateAsync();
 
-            return (user.PointsBalance, result.IsEarlyBird);
+            return (user.PointsBalance, processedVote.IsEarlyBird);
         }
 
         public async Task DeletePollAsync(Guid pollId, Guid requestingUserId)
         {
             var poll = _pollRepo.GetById(pollId);
-            if (poll == null) throw new KeyNotFoundException("Poll not found.");
-            if (poll.CreatorId != requestingUserId) throw new UnauthorizedAccessException("Not poll owner.");
+
+            if (poll == null)
+                throw new KeyNotFoundException("Poll not found.");
+
+            if (poll.CreatorId != requestingUserId)
+                throw new UnauthorizedAccessException("Not poll owner.");
 
             _pollRepo.Remove(poll);
             await _pollRepo.SaveStateAsync();
+        }
+
+        public async Task<Comment> AddCommentAsync(Guid pollId, Guid authorId, string authorName, string content)
+        {
+            var poll = _pollRepo.GetById(pollId);
+
+            if (poll == null)
+                throw new KeyNotFoundException("Poll not found.");
+
+            var comment = new Comment(authorId, authorName, content);
+            poll.Comments.Add(comment);
+
+            await _pollRepo.SaveStateAsync();
+            return comment;
+        }
+
+        // Safely orchestrates payouts across the userbase
+        public async Task ResolveClosedPollsAsync()
+        {
+            bool anyResolved = false;
+            var allUsers = _userRepo.GetAll().ToDictionary(u => u.Id);
+
+            foreach (var poll in _pollRepo.GetAll().Where(p => p.IsClosed() && !p.IsResolved))
+            {
+                var payouts = poll.Resolve();
+
+                foreach (var payout in payouts)
+                {
+                    if (allUsers.TryGetValue(payout.Key, out var user))
+                    {
+                        user.PointsBalance += payout.Value;
+                    }
+                }
+                anyResolved = true;
+            }
+
+            if (anyResolved)
+            {
+                await _pollRepo.SaveStateAsync();
+                await _userRepo.SaveStateAsync();
+            }
         }
 
         private Guid GenerateDeterministicId(string? username)
@@ -92,18 +145,6 @@ namespace PollSystem.Services
             using var md5 = System.Security.Cryptography.MD5.Create();
             byte[] hash = md5.ComputeHash(System.Text.Encoding.Default.GetBytes(username.Trim().ToLower()));
             return new Guid(hash);
-        }
-
-        public async Task<Comment> AddCommentAsync(Guid pollId, Guid authorId, string authorName, string content)
-        {
-            var poll = _pollRepo.GetById(pollId);
-            if (poll == null) throw new KeyNotFoundException("Poll not found.");
-
-            var comment = new Comment(authorId, authorName, content);
-            poll.Comments.Add(comment);
-
-            await _pollRepo.SaveStateAsync();
-            return comment;
         }
     }
 }

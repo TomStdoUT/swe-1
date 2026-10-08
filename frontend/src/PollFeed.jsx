@@ -47,6 +47,7 @@ function TimerAndProgress({ createdAt, closingTime }) {
   );
 }
 
+// --- MINI FEED ---
 export function MiniFeed({ onNavigate, refreshTrigger, username, userId }) {
   const [polls, setPolls] = useState([]);
 
@@ -89,7 +90,7 @@ export function MiniFeed({ onNavigate, refreshTrigger, username, userId }) {
       <div style={{ flex: 1, overflowY: 'auto', maxHeight: '75vh', paddingRight: '10px' }}>
         {polls.map(poll => (
           <div key={poll.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', marginBottom: '16px', position: 'relative' }}>
-            
+
             {poll.creatorId === userId && (
               <button
                 onClick={() => handleDelete(poll.id)}
@@ -125,28 +126,47 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
     loadPolls();
   }, []);
 
+  const handlePollFinished = () => {
+    setTimeout(async () => {
+      loadPolls(); // Triggers the backend to calculate winners
+
+      const activeUsername = sessionStorage.getItem('poll-username');
+      if (activeUsername) {
+        try {
+          const userRes = await fetch('/api/user', { headers: { 'X-Username': activeUsername } });
+          if (userRes.ok) {
+            const userData = await userRes.json();
+            onVoteCast(userData.pointsBalance); // Updates points in App.jsx header
+          }
+        } catch (e) {
+          console.error("Failed to fetch updated points");
+        }
+      }
+    }, 1000);
+  };
+
   const handleVote = async (pollId, optionIndices, bettedPoints) => {
     try {
-      const activeUsername = sessionStorage.getItem('poll-username'); // Read straight from session storage
+      const activeUsername = sessionStorage.getItem('poll-username');
       const response = await fetch(`/api/polls/${pollId}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Username': activeUsername || '',
         },
-        body: JSON.stringify({ optionIndices, bettedPoints }) 
+        body: JSON.stringify({ optionIndices, bettedPoints })
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         const errorMessage = data.error || (data.errors && Object.values(data.errors).join(', ')) || 'Unknown error';
         throw new Error(errorMessage);
       }
-      
-      onVoteCast(data.remainingPoints); 
-      loadPolls(); 
-      return data;
+
+      onVoteCast(data.remainingPoints);
+      loadPolls();
+      return true;
     } catch (error) {
       alert(`Klaida: ${error.message}`);
       return false;
@@ -154,7 +174,7 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
   };
 
   const handleDelete = async (pollId) => {
-    if (window.confirm('Are you sure you want to delete this polls? All your user choices will be lost.')) {
+    if (window.confirm('Are you sure you want to delete this poll? All your user choices will be lost.')) {
       try {
         const response = await fetch(`/api/polls/${pollId}`, {
           method: 'DELETE',
@@ -188,6 +208,7 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
           onVote={handleVote}
           onDelete={handleDelete}
           userId={userId}
+          onPollFinished={handlePollFinished}
         />
       ))}
     </div>
@@ -195,12 +216,11 @@ export function FullFeed({ onNavigate, onVoteCast, username, userId }) {
 }
 
 // --- FULL POLL CARD ---
-function FullPollCard({ poll, onVote, onDelete, userId }) {
+function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished }) {
   const existingVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
-  const [selectedOptions, setSelectedOptions] = useState(existingVote ? [existingVote.optionIndex] : []);
+  const [selectedOptions, setSelectedOptions] = useState(existingVote ? existingVote.optionIndices : []);
   const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
   const [hasVoted, setHasVoted] = useState(!!existingVote);
-  const [isEarlyBird, setIsEarlyBird] = useState(existingVote ? existingVote.isEarlyBird : false);
   const [isVoting, setIsVoting] = useState(false);
 
   const [showComments, setShowComments] = useState(false);
@@ -208,13 +228,12 @@ function FullPollCard({ poll, onVote, onDelete, userId }) {
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
+
   useEffect(() => {
     const currentVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
-    console.log('API VOTE DATA:', currentVote);
-    setSelectedOptions(currentVote ? [currentVote.optionIndex] : []);
+    setSelectedOptions(currentVote ? currentVote.optionIndices : []);
     setBet(currentVote ? currentVote.bettedPoints : 0);
     setHasVoted(!!currentVote);
-    setIsEarlyBird(currentVote ? (currentVote.isEarlyBird ?? currentVote.IsEarlyBird ?? false) : false);
     setComments(poll.comments || []);
   }, [poll]);
 
@@ -222,12 +241,12 @@ function FullPollCard({ poll, onVote, onDelete, userId }) {
     e.preventDefault();
     if (!commentText.trim()) return;
 
-setIsSubmittingComment(true);
+    setIsSubmittingComment(true);
     try {
       const activeUsername = sessionStorage.getItem('poll-username');
       const response = await fetch(`/api/polls/${poll.id}/comments`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'X-Username': activeUsername || ''
         },
@@ -249,7 +268,7 @@ setIsSubmittingComment(true);
       setIsSubmittingComment(false);
     }
   };
-  
+
   const [isClosed, setIsClosed] = useState(
     new Date().getTime() >= new Date(poll.closingTime).getTime()
   );
@@ -260,38 +279,24 @@ setIsSubmittingComment(true);
       if (new Date().getTime() >= new Date(poll.closingTime).getTime()) {
         setIsClosed(true);
         clearInterval(interval);
+
+        if (onPollFinished) onPollFinished();
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [poll.closingTime, isClosed]);
+  }, [poll.closingTime, isClosed, onPollFinished]);
 
   const isLocked = isClosed || hasVoted;
 
-  // NEW POPULARITY CALCULATION (Runs when the poll is closed)
   let isWinner = false;
-  if (isClosed && hasVoted) {
-    const voteCounts = new Array(poll.options.length).fill(0);
-    if (poll.votes) {
-      poll.votes.forEach(v => {
-        v.optionIndices.forEach(idx => {
-          if (idx >= 0 && idx < voteCounts.length) voteCounts[idx]++;
-        });
-      });
-    }
-    
-    const maxVotes = Math.max(...voteCounts, 0);
-    const winningIndices = voteCounts
-      .map((count, index) => count === maxVotes && maxVotes > 0 ? index : -1)
-      .filter(index => index !== -1);
-      
-    // If what they picked includes the community favorite, they win
-    isWinner = selectedOptions.some(idx => winningIndices.includes(idx));
+  if (poll.isResolved && hasVoted) {
+    isWinner = selectedOptions.some(idx => poll.winningOptions.includes(idx));
   }
 
   const toggleOption = (index) => {
     if (isLocked) return;
     if (poll.allowMultiple) {
-      setSelectedOptions(prev => 
+      setSelectedOptions(prev =>
         prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
       );
     } else {
@@ -301,17 +306,14 @@ setIsSubmittingComment(true);
 
   const submitVote = async () => {
     setIsVoting(true);
-    const result = await onVote(poll.id, selectedOptions, bet);
-    if (result) {
-      setHasVoted(true);
-      setIsEarlyBird(result.isEarlyBird ?? false);
-    }
+    const success = await onVote(poll.id, selectedOptions, bet);
+    if (success) setHasVoted(true);
     setIsVoting(false);
   };
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>
-      
+
       {poll.creatorId === userId && (
         <button
           onClick={() => onDelete(poll.id)}
@@ -323,31 +325,26 @@ setIsSubmittingComment(true);
 
       <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>
       <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
-      
+
       <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
-      
-      {hasVoted && isEarlyBird && (
-        <div style={{ marginBottom: '15px', padding: '8px 12px', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', border: '1px solid #fde68a' }}>
-          ⚡ Early Bird Bonus Active! Your vote qualified for early-bird reward multipliers.
-        </div>
-      )}
 
       <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '15px' }}>
         Total votes: <strong>{poll.totalVotesCount ?? 0}</strong>
       </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '20px 0' }}>
         {poll.options.map((opt, index) => {
           if (isLocked && !selectedOptions.includes(index)) return null;
 
           return (
-            <label 
-              key={index} 
+            <label
+              key={index}
               style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: isLocked ? 'default' : 'pointer' }}
             >
-              <input 
-                type={poll.allowMultiple ? "checkbox" : "radio"} 
+              <input
+                type={poll.allowMultiple ? "checkbox" : "radio"}
                 checked={selectedOptions.includes(index)}
-                onChange={() => toggleOption(index)} 
+                onChange={() => toggleOption(index)}
                 disabled={isLocked}
               />
               {opt.text}
@@ -355,54 +352,59 @@ setIsSubmittingComment(true);
           );
         })}
         {isLocked && selectedOptions.length === 0 && (
-          <p style={{ color: 'var(--text)', fontStyle: 'italic', margin: 0 }}>You have not voted in this polls.</p>
+          <p style={{ color: 'var(--text)', fontStyle: 'italic', margin: 0 }}>You have not voted in this poll.</p>
         )}
       </div>
 
       <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-        <input 
-          type="number" 
-          min="0" 
-          placeholder="Betted points (0)" 
+        <input
+          type="number"
+          min="0"
+          placeholder="Betted points (0)"
           value={bet}
           onChange={(e) => setBet(Math.max(0, parseInt(e.target.value) || 0))}
           style={{ padding: '8px', width: '150px' }}
           disabled={isLocked}
         />
-        <button 
+        <button
           onClick={submitVote}
           disabled={selectedOptions.length === 0 || isLocked || isVoting}
-          style={{ 
-            padding: '8px 24px', 
-            background: (selectedOptions.length === 0 || isLocked) ? 'var(--border)' : 'var(--accent)', 
-            color: (selectedOptions.length === 0 || isLocked) ? 'var(--text)' : '#fff', 
-            border: 'none', 
-            borderRadius: '4px', 
-            cursor: (selectedOptions.length === 0 || isLocked) ? 'not-allowed' : 'pointer' 
+          style={{
+            padding: '8px 24px',
+            background: (selectedOptions.length === 0 || isLocked) ? 'var(--border)' : 'var(--accent)',
+            color: (selectedOptions.length === 0 || isLocked) ? 'var(--text)' : '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: (selectedOptions.length === 0 || isLocked) ? 'not-allowed' : 'pointer'
           }}
         >
           {hasVoted ? 'Vote accepted' : 'Vote'}
         </button>
       </div>
 
-      {isClosed && hasVoted && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '12px', 
-          borderRadius: '6px', 
-          background: isWinner ? '#dcfce7' : '#fee2e2', 
-          color: isWinner ? '#166534' : '#991b1b', 
-          fontWeight: 'bold', 
+      {isClosed && !poll.isResolved && hasVoted && (
+        <div style={{ marginTop: '20px', padding: '12px', textAlign: 'center', color: 'var(--text)', fontStyle: 'italic' }}>
+          Voting has ended. Refresh the feed to calculate final results!
+        </div>
+      )}
+
+      {poll.isResolved && hasVoted && (
+        <div style={{
+          marginTop: '20px',
+          padding: '12px',
+          borderRadius: '6px',
+          background: isWinner ? '#dcfce7' : '#fee2e2',
+          color: isWinner ? '#166534' : '#991b1b',
+          fontWeight: 'bold',
           textAlign: 'center',
           border: `1px solid ${isWinner ? '#bbf7d0' : '#fecaca'}`
         }}>
-          {isWinner 
-            ? `Correct! Your answer won. You have won ${bet * 2} points!` 
+          {isWinner
+            ? `Correct! Your answer won. You have won ${bet * 2}${poll.votes[0]?.isEarlyBird ? ' (1.5x Early Bird!)' : ''} points!`
             : `Incorrect. Your choice has lost. You have lost your betted points.`}
         </div>
       )}
 
-    {/* Comments Toggle Button */}
       <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
         <button
           onClick={() => setShowComments(!showComments)}
@@ -419,7 +421,6 @@ setIsSubmittingComment(true);
           {showComments ? 'Hide Comments' : `Comments (${comments.length})`}
         </button>
 
-        {/* Collapsible Comments Section */}
         {showComments && (
           <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
