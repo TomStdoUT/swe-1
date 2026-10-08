@@ -9,11 +9,16 @@ namespace PollSystem.Controllers
     {
         private readonly INotificationService _notificationService;
         private readonly IUserService _userService;
+        private readonly IPollService _pollService;
 
-        public NotificationsController(INotificationService notificationService, IUserService userService)
+        public NotificationsController(
+            INotificationService notificationService, 
+            IUserService userService, 
+            IPollService pollService)
         {
             _notificationService = notificationService;
             _userService = userService;
+            _pollService = pollService;
         }
 
         [HttpGet]
@@ -21,6 +26,8 @@ namespace PollSystem.Controllers
         {
             var user = _userService.GetUser(username);
             if (user == null) return Unauthorized();
+
+            _pollService.GetFeedForUser(username);
 
             var notifications = _notificationService.GetUserNotifications(user.Id);
             return Ok(notifications);

@@ -48,17 +48,18 @@ function TimerAndProgress({ createdAt, closingTime }) {
 }
 
 // --- MINI FEED ---
-export function MiniFeed({ onNavigate, refreshTrigger, username, userId }) {
-  const [polls, setPolls] = useState([]);
+export function MiniFeed({ onNavigate, refreshTrigger, username, userId, onRefresh }) {  const [polls, setPolls] = useState([]);
 
   useEffect(() => {
-    const username = sessionStorage.getItem('poll-username');
     fetch('/api/polls', {
       headers: { 'X-Username': username || '' }
     })
-      .then(res => res.json())
-      .then(data => setPolls(data));
-  }, [refreshTrigger]);
+      .then((res) => res.json())
+      .then((data) => {
+        setPolls(data);
+        if (onRefresh) onRefresh();
+      });
+  }, [refreshTrigger, username]);
 
   const handleDelete = async (pollId) => {
     if (window.confirm('Are you sure you want to delete this poll?')) {
@@ -399,8 +400,8 @@ function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished }) {
           textAlign: 'center',
           border: `1px solid ${isWinner ? '#bbf7d0' : '#fecaca'}`
         }}>
-          {isWinner
-            ? `Correct! Your answer won. You have won ${bet * 2}${poll.votes[0]?.isEarlyBird ? ' (1.5x Early Bird!)' : ''} points!`
+          {isWinner 
+            ? `Correct! Your answer won. You have won ${existingVote?.isEarlyBird ? Math.floor(bet * 1.5) : bet} points!` 
             : `Incorrect. Your choice has lost. You have lost your betted points.`}
         </div>
       )}

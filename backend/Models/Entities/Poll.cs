@@ -15,7 +15,8 @@ namespace PollSystem.Models.Entities
         public DateTime ClosingTime { get; set; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
         public bool AllowMultiple { get; set; }
-        public bool IsResolved { get; private set; }
+        public bool NotificationsGenerated { get; set; } = false;
+        public bool IsResolved { get; set; }
 
         public List<Comment> Comments { get; set; } = new();
 
@@ -81,20 +82,20 @@ namespace PollSystem.Models.Entities
 
                 if (isWinner && vote.BettedPoints > 0)
                 {
-                    // Apply the 1.5x Early Bird Multiplier safely
-                    double multiplier = vote.IsEarlyBird ? 1.5 : 1.0;
-                    int winnings = (int)(vote.BettedPoints * 2 * multiplier);
+                    double profitMultiplier = vote.IsEarlyBird ? 1.5 : 1.0;
+                    int profit = (int)(vote.BettedPoints * profitMultiplier);
+                    int totalPayout = vote.BettedPoints + profit;
 
                     if (payouts.ContainsKey(vote.UserId))
-                        payouts[vote.UserId] += winnings;
+                        payouts[vote.UserId] += totalPayout;
                     else
-                        payouts.Add(vote.UserId, winnings);
+                        payouts.Add(vote.UserId, totalPayout);
                 }
             }
 
             IsResolved = true;
             return payouts;
-        }
+            }
 
         public List<int> GetWinningOptions()
         {

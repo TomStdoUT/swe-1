@@ -9,21 +9,24 @@ namespace PollSystem.Services
     {
         private readonly IPollRepository _pollRepo;
         private readonly IUserRepository _userRepo;
+        private readonly INotificationRepository _notificationRepo;
 
-        public PollService(IPollRepository pollRepo, IUserRepository userRepo)
+        public PollService(IPollRepository pollRepo, IUserRepository userRepo, INotificationRepository notificationRepo)
         {
             _pollRepo = pollRepo;
             _userRepo = userRepo;
+            _notificationRepo = notificationRepo;
         }
 
         public IEnumerable<object> GetFeedForUser(string? username)
         {
+            ProcessClosedPollNotifications();
             var user = _userRepo.FindByUsername(username);
             var activeUserId = user?.Id ?? GenerateDeterministicId(username);
 
             return _pollRepo.GetAll()
-                .OrderByDescending(p => p.ClosingTime)
-                .Select(p => new
+            .OrderByDescending(p => p.ClosingTime)
+            .Select(p => new
                 {
                     p.Id,
                     p.CreatorId,
@@ -112,7 +115,58 @@ namespace PollSystem.Services
             return comment;
         }
 
-        // Safely orchestrates payouts across the userbase
+        private void ProcessClosedPollNotifications()
+        {
+            var closedPolls = _pollRepo.GetAll().Where(p => p.IsClosed() && !p.NotificationsGenerated).ToList();
+
+            foreach (var poll in closedPolls)
+            {
+                poll.NotificationsGenerated = true;
+                poll.IsResolved = true;
+
+                var votes = poll.Votes.ToList();
+                if (votes.Any())
+                {
+                    var winningIndices = poll.GetWinningOptions();
+                    int totalVotes = votes.Count;
+                    int totalComments = poll.Comments?.Count ?? 0;
+
+                    foreach (var vote in votes)
+                    {
+                        bool isWinner = vote.OptionIndices.Any(winningIndices.Contains);
+                        var user = _userRepo.GetAll().FirstOrDefault(u => u.Id == vote.UserId);
+
+                        int payout = 0;
+                        if (isWinner && vote.BettedPoints > 0)
+                        {
+                            double multiplier = vote.IsEarlyBird ? 1.5 : 1.0;
+                            int profit = (int)(vote.BettedPoints * multiplier);
+                            payout = vote.BettedPoints + profit; 
+                        }
+
+                        if (user != null && payout > 0)
+                        {
+                            user.PointsBalance += payout; 
+                        }
+
+                        int netProfit = isWinner ? (payout - vote.BettedPoints) : 0;
+
+                        string content = isWinner
+                            ? $"Poll '{poll.Question}' has ended. Your choice won! You won {netProfit} points. Total votes: {totalVotes}, Comments: {totalComments}."
+                            : $"Poll '{poll.Question}' has ended. Your choice lost! You lost your {vote.BettedPoints} betted points. Total votes: {totalVotes}, Comments: {totalComments}.";
+
+                        _notificationRepo.Add(new Notification(vote.UserId, content));
+                    }
+                }
+            }
+
+            if (closedPolls.Any())
+            {
+                _userRepo.SaveStateAsync();
+                _pollRepo.SaveStateAsync();
+            }
+        }
+    
         public async Task ResolveClosedPollsAsync()
         {
             bool anyResolved = false;
