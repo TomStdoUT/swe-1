@@ -66,21 +66,14 @@ namespace PollSystem.Services
             var poll = _pollRepo.GetById(pollId);
             if (poll == null) throw new KeyNotFoundException("Poll not found.");
 
-            var totalSeconds = (poll.ClosingTime - poll.CreatedAt).TotalSeconds;
-            var elapsedSeconds = (DateTime.UtcNow - poll.CreatedAt).TotalSeconds;
-            bool isEarly = totalSeconds > 0 && (elapsedSeconds / totalSeconds) <= 0.20;
+            var vote = new Vote(user.Id, dto.OptionIndices, dto.BettedPoints);
 
-            var vote = new Vote(user.Id, dto.OptionIndices, dto.BettedPoints) 
-            { 
-                IsEarlyBird = isEarly 
-            };
-
-            poll.CastVote(user, vote);
+            var result = poll.CastVote(user, vote);
 
             await _pollRepo.SaveStateAsync();
             await _userRepo.SaveStateAsync();
 
-            return (user.PointsBalance, isEarly);
+            return (user.PointsBalance, result.IsEarlyBird);
         }
 
         public async Task DeletePollAsync(Guid pollId, Guid requestingUserId)

@@ -24,7 +24,7 @@ namespace PollSystem.Models.Entities
 
         public bool IsClosed() => DateTime.UtcNow >= ClosingTime;
 
-        public bool CastVote(User user, Vote vote)
+        public (bool IsWinner, bool IsEarlyBird) CastVote(User user, Vote vote)
         {
             if (IsClosed()) throw new InvalidOperationException("Voting for this poll has ended.");
             if (!vote.OptionIndices.Any()) throw new ArgumentException("You must select at least one option.");
@@ -42,6 +42,11 @@ namespace PollSystem.Models.Entities
                 user.PointsBalance -= vote.BettedPoints;
             }
 
+            // 1. Domain Logic: The Poll calculates if the vote is early
+            var totalSeconds = (ClosingTime - CreatedAt).TotalSeconds;
+            var elapsedSeconds = (DateTime.UtcNow - CreatedAt).TotalSeconds;
+            vote.IsEarlyBird = totalSeconds > 0 && (elapsedSeconds / totalSeconds) <= 0.20;
+
             _votes.Add(vote);
 
             var voteCounts = new Dictionary<int, int>();
@@ -53,17 +58,20 @@ namespace PollSystem.Models.Entities
                     voteCounts[idx]++;
                 }
             }
-            
+
             int maxVotes = voteCounts.Any() ? voteCounts.Values.Max() : 0;
             var winningIndices = voteCounts.Where(kv => kv.Value == maxVotes).Select(kv => kv.Key).ToList();
             bool isWinner = vote.OptionIndices.Any(idx => winningIndices.Contains(idx));
 
+            // 2. Domain Logic: Apply the 1.5x multiplier if the vote was early
             if (isWinner && vote.BettedPoints > 0)
             {
-                user.PointsBalance += (vote.BettedPoints * 2);
+                double multiplier = vote.IsEarlyBird ? 1.5 : 1.0;
+                int winnings = (int)(vote.BettedPoints * 2 * multiplier);
+                user.PointsBalance += winnings;
             }
 
-            return isWinner;
+            return (isWinner, vote.IsEarlyBird);
         }
 
         public bool Equals(Poll? other) => other != null && Id == other.Id;
