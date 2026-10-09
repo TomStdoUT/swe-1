@@ -12,32 +12,47 @@ function App() {
   const [restoring, setRestoring] = useState(() => Boolean(sessionStorage.getItem('poll-username')));
   const [currentView, setCurrentView] = useState('creator');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState([]);
+  
+  // Fetch notifications periodically
+  useEffect(() => {
+    if (!username) return;
+    const fetchNotifications = () => {
+      fetch('/api/notifications', {
+        headers: { 'X-Username': username },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setUnreadNotifications(data);
+        })
+        .catch((err) => console.error('Error fetching notifications:', err));
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000);
+    return () => clearInterval(interval);
+  }, [username]);
 
   // Fetch user data on load
   useEffect(() => {
     const savedUsername = sessionStorage.getItem('poll-username');
     if (!savedUsername) {
+      setRestoring(false);
       return;
     }
 
-    fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: savedUsername }),
+    fetch('/api/user', {
+      headers: { 'X-Username': savedUsername },
     })
-      .then((response) => {
-        if (!response.ok) throw new Error('Could not restore username.');
-        return response.json();
-      })
+      .then((res) => res.json())
       .then((data) => {
-        setUsername(data.username);
-        setUserId(data.id);
-        setUserPoints(data.pointsBalance);
+        if (data && data.pointsBalance !== undefined) {
+          setUserPoints(data.pointsBalance);
+        }
       })
-      .catch(() => sessionStorage.removeItem('poll-username'))
+      .catch(() => {})
       .finally(() => setRestoring(false));
-  }, []);
-
+  }, [refreshTrigger, currentView]);
 
   const handleLogin = (user) => {
     sessionStorage.setItem('poll-username', user.username);
@@ -53,6 +68,9 @@ function App() {
     <div style={{ paddingBottom: '70px' }}>
       <header className="app-user-bar">
         <span>Signed in as <strong>{username}</strong></span>
+        <button type="button" onClick={() => setCurrentView('notifications')}>
+          Notifications ({unreadNotifications.length})
+        </button>
         <button type="button" onClick={() => setCurrentView('profiles')}>
           Public profiles
         </button>
@@ -69,12 +87,34 @@ function App() {
         </button>
       </header>
 
-      {currentView === 'profiles' ? (
+      {currentView === 'notifications' ? (
+        <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto', textAlign: 'left' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2>Notifications</h2>
+            <button onClick={() => setCurrentView('creator')} style={{ padding: '8px 16px', borderRadius: '20px', cursor: 'pointer' }}>
+              Back
+            </button>
+          </div>
+          {unreadNotifications.length === 0 ? (
+            <p style={{ color: 'var(--text)', fontStyle: 'italic' }}>No notifications yet.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {unreadNotifications.map((notif) => (
+                <div key={notif.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', background: 'var(--bg)' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '15px' }}>{notif.content}</p>
+                  <span style={{ fontSize: '12px', color: 'var(--text)' }}>{new Date(notif.createdAt).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : currentView === 'profiles' ? (
         <PublicProfiles onBack={() => setCurrentView('creator')} />
       ) : currentView === 'creator' ? (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', padding: '20px', alignItems: 'flex-start' }}>
           <CategorizedPoll
             username={username}
+            userPoints={userPoints}
             onPollCreated={() => setRefreshTrigger((previous) => previous + 1)}
           />
           <MiniFeed
@@ -87,7 +127,7 @@ function App() {
       ) : (
         <FullFeed
           onNavigate={() => setCurrentView('creator')}
-          onVoteCast={(newPoints) => setUserPoints(newPoints)}
+          onVoteCast={() => setRefreshTrigger((prev) => prev + 1)}
           username={username}
           userId={userId}
         />

@@ -15,6 +15,8 @@ namespace PollSystem.Models.Entities
         public DateTime ClosingTime { get; set; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
         public bool AllowMultiple { get; set; }
+        public bool NotificationsGenerated { get; set; } = false;
+        public bool IsResolved { get; set; }
 
         public List<Comment> Comments { get; set; } = new();
 
@@ -24,11 +26,16 @@ namespace PollSystem.Models.Entities
 
         public bool IsClosed() => DateTime.UtcNow >= ClosingTime;
 
-        public bool CastVote(User user, Vote vote)
+        public void CastVote(User user, Vote vote)
         {
-            if (IsClosed()) throw new InvalidOperationException("Voting for this poll has ended.");
-            if (!vote.OptionIndices.Any()) throw new ArgumentException("You must select at least one option.");
-            if (!AllowMultiple && vote.OptionIndices.Count > 1) throw new InvalidOperationException("This poll only allows a single choice.");
+            if (IsClosed())
+                throw new InvalidOperationException("Voting for this poll has ended.");
+
+            if (!vote.OptionIndices.Any())
+                throw new ArgumentException("You must select at least one option.");
+
+            if (!AllowMultiple && vote.OptionIndices.Count > 1)
+                throw new InvalidOperationException("This poll only allows a single choice.");
 
             foreach (var index in vote.OptionIndices)
             {
@@ -36,14 +43,62 @@ namespace PollSystem.Models.Entities
                     throw new ArgumentOutOfRangeException(nameof(vote.OptionIndices), "Option doesn't exist.");
             }
 
+            // Deduct the points immediately, but do NOT award winnings yet
             if (vote.BettedPoints > 0)
             {
-                if (user.PointsBalance < vote.BettedPoints) throw new InvalidOperationException("Insufficient points balance.");
+                if (user.PointsBalance < vote.BettedPoints)
+                    throw new InvalidOperationException("Insufficient points balance.");
+
                 user.PointsBalance -= vote.BettedPoints;
             }
 
-            _votes.Add(vote);
+            // Domain Logic: The Poll strictly calculates its own early bird window
+            var totalSeconds = (ClosingTime - CreatedAt).TotalSeconds;
+            var elapsedSeconds = (DateTime.UtcNow - CreatedAt).TotalSeconds;
 
+            var finalizedVote = new Vote(vote.UserId, vote.OptionIndices, vote.BettedPoints)
+            {
+                IsEarlyBird = totalSeconds > 0 && (elapsedSeconds / totalSeconds) <= 0.20
+            };
+
+            _votes.Add(finalizedVote);
+        }
+
+        // Domain Logic: Resolves the poll securely and generates a payout dictionary
+        public Dictionary<Guid, int> Resolve()
+        {
+            if (!IsClosed())
+                throw new InvalidOperationException("Poll is not closed yet.");
+
+            if (IsResolved)
+                return new Dictionary<Guid, int>();
+
+            var winningIndices = GetWinningOptions();
+            var payouts = new Dictionary<Guid, int>();
+
+            foreach (var vote in _votes)
+            {
+                bool isWinner = vote.OptionIndices.Any(idx => winningIndices.Contains(idx));
+
+                if (isWinner && vote.BettedPoints > 0)
+                {
+                    double profitMultiplier = vote.IsEarlyBird ? 1.5 : 1.0;
+                    int profit = (int)(vote.BettedPoints * profitMultiplier);
+                    int totalPayout = vote.BettedPoints + profit;
+
+                    if (payouts.ContainsKey(vote.UserId))
+                        payouts[vote.UserId] += totalPayout;
+                    else
+                        payouts.Add(vote.UserId, totalPayout);
+                }
+            }
+
+            IsResolved = true;
+            return payouts;
+            }
+
+        public List<int> GetWinningOptions()
+        {
             var voteCounts = new Dictionary<int, int>();
             foreach (var v in _votes)
             {
@@ -53,17 +108,9 @@ namespace PollSystem.Models.Entities
                     voteCounts[idx]++;
                 }
             }
-            
+
             int maxVotes = voteCounts.Any() ? voteCounts.Values.Max() : 0;
-            var winningIndices = voteCounts.Where(kv => kv.Value == maxVotes).Select(kv => kv.Key).ToList();
-            bool isWinner = vote.OptionIndices.Any(idx => winningIndices.Contains(idx));
-
-            if (isWinner && vote.BettedPoints > 0)
-            {
-                user.PointsBalance += (vote.BettedPoints * 2);
-            }
-
-            return isWinner;
+            return voteCounts.Where(kv => kv.Value == maxVotes).Select(kv => kv.Key).ToList();
         }
 
         public bool Equals(Poll? other) => other != null && Id == other.Id;

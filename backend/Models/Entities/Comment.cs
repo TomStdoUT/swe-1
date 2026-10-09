@@ -12,8 +12,11 @@ namespace PollSystem.Models.Entities
 
         public Comment(Guid authorId, string authorName, string content)
         {
-            if (string.IsNullOrWhiteSpace(authorName)) throw new ArgumentException("Author name cannot be empty.");
-            if (string.IsNullOrWhiteSpace(content)) throw new ArgumentException("Comment content cannot be empty.");
+            if (string.IsNullOrWhiteSpace(authorName))
+                throw new ArgumentException("Author name cannot be empty.");
+            
+            if (string.IsNullOrWhiteSpace(content))
+                throw new ArgumentException("Comment content cannot be empty.");
 
             AuthorId = authorId;
             AuthorName = authorName;

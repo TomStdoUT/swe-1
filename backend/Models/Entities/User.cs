@@ -10,7 +10,9 @@ namespace PollSystem.Models.Entities
 
         public User(string username, int initialPoints = 100)
         {
-            if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("Username cannot be empty.");
+            if (string.IsNullOrWhiteSpace(username))
+                throw new ArgumentException("Username cannot be empty.");
+
             Username = username;
             PointsBalance = initialPoints;
         }

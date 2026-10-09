@@ -18,8 +18,10 @@ namespace PollSystem.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetAllPolls([FromHeader(Name = "X-Username")] string? username)
+        public async Task<IActionResult> GetAllPolls([FromHeader(Name = "X-Username")] string? username)
         {
+            await _pollService.ResolveClosedPollsAsync();
+
             var feed = _pollService.GetFeedForUser(username);
             return Ok(feed);
         }
@@ -30,7 +32,9 @@ namespace PollSystem.Controllers
             [FromBody] PollCreateDto dto)
         {
             var user = _userService.GetUser(username);
-            if (user == null) return Unauthorized();
+
+            if (user == null)
+                return Unauthorized();
 
             try
             {
@@ -50,12 +54,14 @@ namespace PollSystem.Controllers
             [FromBody] VoteDto dto)
         {
             var user = _userService.GetUser(username);
-            if (user == null) return Unauthorized();
+
+            if (user == null)
+                return Unauthorized();
 
             try
             {
-                var remainingPoints = await _pollService.CastVoteAsync(id, user, dto);
-                return Ok(new { message = "Vote accepted!", remainingPoints });
+                var (remainingPoints, isEarlyBird) = await _pollService.CastVoteAsync(id, user, dto);
+                return Ok(new { message = "Vote accepted!", remainingPoints, isEarlyBird });
             }
             catch (Exception ex)
             {
@@ -67,7 +73,9 @@ namespace PollSystem.Controllers
         public async Task<IActionResult> DeletePoll(Guid id, [FromHeader(Name = "X-Username")] string? username)
         {
             var user = _userService.GetUser(username);
-            if (user == null) return Unauthorized();
+
+            if (user == null)
+                return Unauthorized();
 
             try
             {
@@ -91,12 +99,12 @@ namespace PollSystem.Controllers
             [FromBody] CommentCreateDto dto)
         {
             var user = _userService.GetUser(username);
-            if (user == null) return Unauthorized();
+
+            if (user == null)
+                return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(dto.Content))
-            {
                 return BadRequest(new { error = "Comment content cannot be empty." });
-            }
 
             try
             {

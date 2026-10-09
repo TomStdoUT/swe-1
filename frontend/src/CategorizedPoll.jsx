@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react';
 
 const CATEGORIES = ['Sport', 'Technology', 'Politics', 'Fun', 'Other'];
 
-export function CategorizedPoll({ username, onPollCreated }) {
-  const [question, setQuestion] = useState('');
+export function CategorizedPoll({ username, onPollCreated, userPoints }) {  const [question, setQuestion] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState([]);
   const [options, setOptions] = useState(['', '']); 
-  const [userPoints, setUserPoints] = useState(100);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [allowMultiple, setAllowMultiple] = useState(false);
@@ -17,18 +15,7 @@ export function CategorizedPoll({ username, onPollCreated }) {
   const [durMins, setDurMins] = useState(0);
   const [durSecs, setDurSecs] = useState(0);
 
-  useEffect(() => {
-    fetch('/api/user', {
-      headers: { 'X-Username': username },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.pointsBalance !== undefined) {
-          setUserPoints(data.pointsBalance);
-        }
-      })
-      .catch((err) => console.error('Error fetching user points:', err));
-  }, [username]);
+  
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -85,7 +72,6 @@ export function CategorizedPoll({ username, onPollCreated }) {
         return;
       }
 
-      setUserPoints(data.remainingPoints);
       alert('Success creating poll!');
 
       if (onPollCreated) onPollCreated();
