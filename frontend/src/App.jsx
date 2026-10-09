@@ -1,31 +1,32 @@
 import { useEffect, useState } from 'react';
-import { CategorizedPoll } from './CategorizedPoll';
-import { MiniFeed, FullFeed } from './PollFeed';
-import { Login } from './Login';
-import { PublicProfiles } from './PublicProfiles';
+import { CategorizedPoll } from './components/CategorizedPoll';
+import { MiniFeed } from './components/MiniFeed';
+import { FullFeed } from './components/FullFeed';
+import { Login } from './pages/Login';
+import { PublicProfiles } from './pages/PublicProfiles';
 import './App.css';
 
 function App() {
   const [username, setUsername] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userPoints, setUserPoints] = useState(0);
-  const [restoring, setRestoring] = useState(() => Boolean(sessionStorage.getItem('poll-username')));
+  const [restoring, setRestoring] = useState(() => Boolean(sessionStorage.getItem('poll-token')));
   const [currentView, setCurrentView] = useState('creator');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState([]);
   
-  // Fetch notifications periodically
   useEffect(() => {
     if (!username) return;
+    
     const fetchNotifications = () => {
       fetch('/api/notifications', {
-        headers: { 'X-Username': username },
+        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('poll-token')}` },
       })
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data)) setUnreadNotifications(data);
         })
-        .catch((err) => console.error('Error fetching notifications:', err));
+        .catch((err) => console.error(err));
     };
 
     fetchNotifications();
@@ -33,21 +34,22 @@ function App() {
     return () => clearInterval(interval);
   }, [username]);
 
-  // Fetch user data on load
   useEffect(() => {
-    const savedUsername = sessionStorage.getItem('poll-username');
-    if (!savedUsername) {
+    const token = sessionStorage.getItem('poll-token');
+    if (!token) {
       setRestoring(false);
       return;
     }
 
     fetch('/api/user', {
-      headers: { 'X-Username': savedUsername },
+      headers: { 'Authorization': `Bearer ${token}` },
     })
       .then((res) => res.json())
       .then((data) => {
         if (data && data.pointsBalance !== undefined) {
           setUserPoints(data.pointsBalance);
+          setUsername(data.username);
+          setUserId(data.id);
         }
       })
       .catch(() => {})
@@ -78,6 +80,7 @@ function App() {
           type="button"
           onClick={() => {
             sessionStorage.removeItem('poll-username');
+            sessionStorage.removeItem('poll-token');
             setUsername(null);
             setUserPoints(100);
             setRefreshTrigger(prev => prev + 1);
@@ -113,14 +116,12 @@ function App() {
       ) : currentView === 'creator' ? (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', padding: '20px', alignItems: 'flex-start' }}>
           <CategorizedPoll
-            username={username}
             userPoints={userPoints}
             onPollCreated={() => setRefreshTrigger((previous) => previous + 1)}
           />
           <MiniFeed
             onNavigate={() => setCurrentView('feed')}
             refreshTrigger={refreshTrigger}
-            username={username}
             userId={userId}
           />
         </div>
@@ -128,11 +129,9 @@ function App() {
         <FullFeed
           onNavigate={() => setCurrentView('creator')}
           onVoteCast={() => setRefreshTrigger((prev) => prev + 1)}
-          username={username}
           userId={userId}
         />
       )}
-
 
       <div style={{ 
         position: 'fixed', 

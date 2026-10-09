@@ -1,21 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const CATEGORIES = ['Sport', 'Technology', 'Politics', 'Fun', 'Other'];
 
-export function CategorizedPoll({ username, onPollCreated, userPoints }) {  const [question, setQuestion] = useState('');
+export function CategorizedPoll({ onPollCreated, userPoints }) {  
+  const [question, setQuestion] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState([]);
   const [options, setOptions] = useState(['', '']); 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
   const [allowMultiple, setAllowMultiple] = useState(false);
-
   const [durHours, setDurHours] = useState(0);
   const [durMins, setDurMins] = useState(0);
   const [durSecs, setDurSecs] = useState(0);
-
-  
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -32,6 +29,7 @@ export function CategorizedPoll({ username, onPollCreated, userPoints }) {  cons
     e.preventDefault();
 
     const totalSeconds = (durHours * 3600) + (durMins * 60) + durSecs;
+    
     if (totalSeconds < 60) {
       alert('The poll must be at least 1 minute (60 seconds) long.');
       return;
@@ -43,7 +41,6 @@ export function CategorizedPoll({ username, onPollCreated, userPoints }) {  cons
       setTagInput(''); 
     }
 
-    // Removed the correctOptionIndices from the payload entirely
     const pollData = {
       question,
       category,
@@ -59,7 +56,7 @@ export function CategorizedPoll({ username, onPollCreated, userPoints }) {  cons
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Username': username,
+          'Authorization': `Bearer ${sessionStorage.getItem('poll-token')}`
         },
         body: JSON.stringify(pollData),
       });
@@ -84,7 +81,6 @@ export function CategorizedPoll({ username, onPollCreated, userPoints }) {  cons
       setDurSecs(0);
       setAllowMultiple(false);
     } catch (error) {
-      console.error('Failed to connect to backend:', error);
       alert('Could not connect to backend server.');
     } finally {
       setIsSubmitting(false);
