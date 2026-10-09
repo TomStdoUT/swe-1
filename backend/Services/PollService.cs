@@ -20,7 +20,6 @@ namespace PollSystem.Services
 
         public IEnumerable<object> GetFeedForUser(string? username)
         {
-            ProcessClosedPollNotifications();
             var user = _userRepo.FindByUsername(username);
             var activeUserId = user?.Id ?? GenerateDeterministicId(username);
 
@@ -114,59 +113,8 @@ namespace PollSystem.Services
             await _pollRepo.SaveStateAsync();
             return comment;
         }
-
-        private void ProcessClosedPollNotifications()
-        {
-            var closedPolls = _pollRepo.GetAll().Where(p => p.IsClosed() && !p.NotificationsGenerated).ToList();
-
-            foreach (var poll in closedPolls)
-            {
-                poll.NotificationsGenerated = true;
-                poll.IsResolved = true;
-
-                var votes = poll.Votes.ToList();
-                if (votes.Any())
-                {
-                    var winningIndices = poll.GetWinningOptions();
-                    int totalVotes = votes.Count;
-                    int totalComments = poll.Comments?.Count ?? 0;
-
-                    foreach (var vote in votes)
-                    {
-                        bool isWinner = vote.OptionIndices.Any(winningIndices.Contains);
-                        var user = _userRepo.GetAll().FirstOrDefault(u => u.Id == vote.UserId);
-
-                        int payout = 0;
-                        if (isWinner && vote.BettedPoints > 0)
-                        {
-                            double multiplier = vote.IsEarlyBird ? 1.5 : 1.0;
-                            int profit = (int)(vote.BettedPoints * multiplier);
-                            payout = vote.BettedPoints + profit; 
-                        }
-
-                        if (user != null && payout > 0)
-                        {
-                            user.PointsBalance += payout; 
-                        }
-
-                        int netProfit = isWinner ? (payout - vote.BettedPoints) : 0;
-
-                        string content = isWinner
-                            ? $"Poll '{poll.Question}' has ended. Your choice won! You won {netProfit} points. Total votes: {totalVotes}, Comments: {totalComments}."
-                            : $"Poll '{poll.Question}' has ended. Your choice lost! You lost your {vote.BettedPoints} betted points. Total votes: {totalVotes}, Comments: {totalComments}.";
-
-                        _notificationRepo.Add(new Notification(vote.UserId, content));
-                    }
-                }
-            }
-
-            if (closedPolls.Any())
-            {
-                _userRepo.SaveStateAsync();
-                _pollRepo.SaveStateAsync();
-            }
-        }
     
+        // Safely orchestrates payouts and notifications across the userbase
         public async Task ResolveClosedPollsAsync()
         {
             bool anyResolved = false;
@@ -174,8 +122,13 @@ namespace PollSystem.Services
 
             foreach (var poll in _pollRepo.GetAll().Where(p => p.IsClosed() && !p.IsResolved))
             {
+                // 1. Ask the Entity for the absolute truth (Domain Logic)
                 var payouts = poll.Resolve();
+                
+                int totalVotes = poll.Votes.Count();
+                int totalComments = poll.Comments?.Count ?? 0;
 
+                // 2. The Service acts on that truth (Application Logic)
                 foreach (var payout in payouts)
                 {
                     if (allUsers.TryGetValue(payout.Key, out var user))
@@ -183,6 +136,25 @@ namespace PollSystem.Services
                         user.PointsBalance += payout.Value;
                     }
                 }
+
+                // Group votes by user to avoid duplicate notifications on multi-choice polls
+                var userVotes = poll.Votes.GroupBy(v => v.UserId);
+                
+                foreach (var userVoteGroup in userVotes)
+                {
+                    var userId = userVoteGroup.Key;
+                    bool isWinner = payouts.ContainsKey(userId);
+                    int totalBetted = userVoteGroup.Sum(v => v.BettedPoints);
+                    int totalPayout = isWinner ? payouts[userId] : 0;
+                    int netProfit = totalPayout - totalBetted;
+
+                    string content = isWinner && netProfit >= 0
+                        ? $"Poll '{poll.Question}' has ended. Your choice won! You won {netProfit} points. Total votes: {totalVotes}, Comments: {totalComments}."
+                        : $"Poll '{poll.Question}' has ended. Your choice lost! You lost your {totalBetted} betted points. Total votes: {totalVotes}, Comments: {totalComments}.";
+
+                    _notificationRepo.Add(new Notification(userId, content));
+                }
+
                 anyResolved = true;
             }
 

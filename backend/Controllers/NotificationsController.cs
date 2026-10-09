@@ -22,12 +22,15 @@ namespace PollSystem.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetNotifications([FromHeader(Name = "X-Username")] string? username)
+        public async Task<IActionResult> GetNotifications([FromHeader(Name = "X-Username")] string? username)
         {
             var user = _userService.GetUser(username);
-            if (user == null) return Unauthorized();
+            
+            if (user == null)
+                return Unauthorized();
 
-            _pollService.GetFeedForUser(username);
+            // Explicitly resolve polls and generate pending notifications
+            await _pollService.ResolveClosedPollsAsync();
 
             var notifications = _notificationService.GetUserNotifications(user.Id);
             return Ok(notifications);
