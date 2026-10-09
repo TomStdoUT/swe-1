@@ -114,7 +114,6 @@ namespace PollSystem.Services
             return comment;
         }
     
-        // Safely orchestrates payouts and notifications across the userbase
         public async Task ResolveClosedPollsAsync()
         {
             bool anyResolved = false;
@@ -122,13 +121,11 @@ namespace PollSystem.Services
 
             foreach (var poll in _pollRepo.GetAll().Where(p => p.IsClosed() && !p.IsResolved))
             {
-                // 1. Ask the Entity for the absolute truth (Domain Logic)
                 var payouts = poll.Resolve();
                 
                 int totalVotes = poll.Votes.Count();
                 int totalComments = poll.Comments?.Count ?? 0;
 
-                // 2. The Service acts on that truth (Application Logic)
                 foreach (var payout in payouts)
                 {
                     if (allUsers.TryGetValue(payout.Key, out var user))
@@ -137,7 +134,6 @@ namespace PollSystem.Services
                     }
                 }
 
-                // Group votes by user to avoid duplicate notifications on multi-choice polls
                 var userVotes = poll.Votes.GroupBy(v => v.UserId);
                 
                 foreach (var userVoteGroup in userVotes)

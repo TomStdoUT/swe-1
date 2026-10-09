@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PollSystem.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace PollSystem.Controllers
 {
@@ -21,15 +23,16 @@ namespace PollSystem.Controllers
             _pollService = pollService;
         }
 
+        [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetNotifications([FromHeader(Name = "X-Username")] string? username)
+        public async Task<IActionResult> GetNotifications()
         {
+            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = _userService.GetUser(username);
             
             if (user == null)
                 return Unauthorized();
 
-            // Explicitly resolve polls and generate pending notifications
             await _pollService.ResolveClosedPollsAsync();
 
             var notifications = _notificationService.GetUserNotifications(user.Id);
