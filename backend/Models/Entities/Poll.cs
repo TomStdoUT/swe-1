@@ -15,8 +15,8 @@ namespace PollSystem.Models.Entities
         public DateTime ClosingTime { get; set; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
         public bool AllowMultiple { get; set; }
-        public bool NotificationsGenerated { get; set; } = false;
-        public bool IsResolved { get; set; }
+        public bool NotificationsGenerated { get; private set; } = false;
+        public bool IsResolved { get; private set; }
 
         public List<Comment> Comments { get; set; } = new();
 
@@ -43,7 +43,6 @@ namespace PollSystem.Models.Entities
                     throw new ArgumentOutOfRangeException(nameof(vote.OptionIndices), "Option doesn't exist.");
             }
 
-            // Deduct the points immediately, but do NOT award winnings yet
             if (vote.BettedPoints > 0)
             {
                 if (user.PointsBalance < vote.BettedPoints)
@@ -52,7 +51,6 @@ namespace PollSystem.Models.Entities
                 user.PointsBalance -= vote.BettedPoints;
             }
 
-            // Domain Logic: The Poll strictly calculates its own early bird window
             var totalSeconds = (ClosingTime - CreatedAt).TotalSeconds;
             var elapsedSeconds = (DateTime.UtcNow - CreatedAt).TotalSeconds;
 
@@ -64,7 +62,6 @@ namespace PollSystem.Models.Entities
             _votes.Add(finalizedVote);
         }
 
-        // Domain Logic: Resolves the poll securely and generates a payout dictionary
         public Dictionary<Guid, int> Resolve()
         {
             if (!IsClosed())
@@ -94,8 +91,9 @@ namespace PollSystem.Models.Entities
             }
 
             IsResolved = true;
+            NotificationsGenerated = true;
             return payouts;
-            }
+        }
 
         public List<int> GetWinningOptions()
         {

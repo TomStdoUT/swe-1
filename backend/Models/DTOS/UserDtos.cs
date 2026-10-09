@@ -1,6 +1,7 @@
 namespace PollSystem.Models.DTOs
 {
-    public record LoginDto(string Username, string? Password = null);
+    public record LoginDto(string Username, string Password);
+    public record RegisterDto(string Username, string Password);
     
     public record UserProfileDto(
         Guid Id,

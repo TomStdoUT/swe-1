@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using PollSystem.Models.Entities;
 using PollSystem.Repositories.Interfaces;
@@ -16,7 +14,6 @@ namespace PollSystem.Repositories
         public UserRepository(string stateFilePath)
         {
             _stateFilePath = stateFilePath;
-            GetOrCreate("Povilas");
         }
 
         public async Task LoadStateAsync()
@@ -36,8 +33,6 @@ namespace PollSystem.Repositories
                 {
                     _users.TryAdd(user.Username, user);
                 }
-
-                if (_users.IsEmpty) GetOrCreate("Povilas");
             }
             finally
             {
@@ -59,13 +54,9 @@ namespace PollSystem.Repositories
             }
         }
 
-        public User GetOrCreate(string username)
+        public void Add(User user)
         {
-            var normalizedUsername = username.Trim();
-            return _users.GetOrAdd(normalizedUsername, name => new User(name)
-            {
-                Id = CreateStableId(name),
-            });
+            _users.TryAdd(user.Username, user);
         }
 
         public User? FindByUsername(string? username)
@@ -75,12 +66,5 @@ namespace PollSystem.Repositories
         }
 
         public IEnumerable<User> GetAll() => _users.Values.OrderBy(user => user.Username);
-
-        private static Guid CreateStableId(string username)
-        {
-            var normalizedUsername = username.ToUpperInvariant();
-            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedUsername));
-            return new Guid(hash.AsSpan(0, 16));
-        }
     }
 }

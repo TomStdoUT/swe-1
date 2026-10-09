@@ -6,7 +6,7 @@ namespace PollSystem.Repositories.Interfaces
     {
         Task LoadStateAsync();
         Task SaveStateAsync();
-        User GetOrCreate(string username);
+        void Add(User user);
         User? FindByUsername(string? username);
         IEnumerable<User> GetAll();
     }

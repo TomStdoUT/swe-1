@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using PollSystem.Models.DTOs;
 using PollSystem.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace PollSystem.Controllers
 {
@@ -17,20 +19,23 @@ namespace PollSystem.Controllers
             _userService = userService;
         }
 
+        [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetAllPolls([FromHeader(Name = "X-Username")] string? username)
+        public async Task<IActionResult> GetAllPolls()
         {
             await _pollService.ResolveClosedPollsAsync();
 
+            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var feed = _pollService.GetFeedForUser(username);
+            
             return Ok(feed);
         }
 
+        [Authorize]
         [HttpPost]
-        public async Task<IActionResult> CreatePoll(
-            [FromHeader(Name = "X-Username")] string? username,
-            [FromBody] PollCreateDto dto)
+        public async Task<IActionResult> CreatePoll([FromBody] PollCreateDto dto)
         {
+            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = _userService.GetUser(username);
 
             if (user == null)
@@ -47,12 +52,11 @@ namespace PollSystem.Controllers
             }
         }
 
+        [Authorize]
         [HttpPost("{id}/vote")]
-        public async Task<IActionResult> Vote(
-            Guid id,
-            [FromHeader(Name = "X-Username")] string? username,
-            [FromBody] VoteDto dto)
+        public async Task<IActionResult> Vote(Guid id, [FromBody] VoteDto dto)
         {
+            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = _userService.GetUser(username);
 
             if (user == null)
@@ -69,9 +73,11 @@ namespace PollSystem.Controllers
             }
         }
 
+        [Authorize]
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePoll(Guid id, [FromHeader(Name = "X-Username")] string? username)
+        public async Task<IActionResult> DeletePoll(Guid id)
         {
+            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = _userService.GetUser(username);
 
             if (user == null)
@@ -92,12 +98,11 @@ namespace PollSystem.Controllers
             }
         }
 
+        [Authorize]
         [HttpPost("{id}/comments")]
-        public async Task<IActionResult> AddComment(
-            Guid id,
-            [FromHeader(Name = "X-Username")] string? username,
-            [FromBody] CommentCreateDto dto)
+        public async Task<IActionResult> AddComment(Guid id, [FromBody] CommentCreateDto dto)
         {
+            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = _userService.GetUser(username);
 
             if (user == null)

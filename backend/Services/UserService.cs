@@ -1,3 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using PollSystem.Models.DTOs;
 using PollSystem.Models.Entities;
 using PollSystem.Repositories.Interfaces;
@@ -9,26 +14,71 @@ namespace PollSystem.Services
     {
         private readonly IUserRepository _userRepo;
         private readonly IPollRepository _pollRepo;
+        private readonly IConfiguration _config;
 
-        public UserService(IUserRepository userRepo, IPollRepository pollRepo)
+        public UserService(IUserRepository userRepo, IPollRepository pollRepo, IConfiguration config)
         {
             _userRepo = userRepo;
             _pollRepo = pollRepo;
+            _config = config;
         }
 
         public User? GetUser(string? username) => _userRepo.FindByUsername(username);
 
-        public async Task<User> LoginAsync(string username)
+        public async Task<(User User, string Token)> RegisterAsync(string username, string password)
         {
-            var user = _userRepo.GetOrCreate(username);
+            if (_userRepo.FindByUsername(username) != null)
+                throw new InvalidOperationException("Username is already taken.");
+
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+            var user = new User(username, passwordHash);
+
+            _userRepo.Add(user);
             await _userRepo.SaveStateAsync();
-            return user;
+
+            var token = GenerateJwtToken(user);
+            return (user, token);
+        }
+
+        public async Task<(User User, string Token)> LoginAsync(string username, string password)
+        {
+            var user = _userRepo.FindByUsername(username);
+
+            if (user == null || string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+                throw new UnauthorizedAccessException("Invalid username or password.");
+
+            var token = GenerateJwtToken(user);
+            return (user, token);
+        }
+
+        private string GenerateJwtToken(User user)
+        {
+            var jwtKey = _config["Jwt:Key"] ?? "a_very_long_and_secure_secret_key_for_swe_1_project_12345!";
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Username),
+                new Claim("userId", user.Id.ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: DateTime.UtcNow.AddDays(7),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
         public UserProfileDto? GetUserProfile(string? username)
         {
             var user = _userRepo.FindByUsername(username);
-            if (user == null) return null;
+            
+            if (user == null) 
+                return null;
+                
             return CreateProfileDto(user);
         }
 
