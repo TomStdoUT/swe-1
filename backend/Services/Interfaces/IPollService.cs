@@ -11,5 +11,6 @@ namespace PollSystem.Services.Interfaces
         Task DeletePollAsync(Guid pollId, Guid requestingUserId);
         Task<Comment> AddCommentAsync(Guid pollId, Guid authorId, string authorName, string content);
         Task ResolveClosedPollsAsync();
+        Task EnsureDailyQuestionAsync();
     }
 }
