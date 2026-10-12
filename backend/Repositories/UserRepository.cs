@@ -65,6 +65,8 @@ namespace PollSystem.Repositories
             return _users.GetValueOrDefault(username.Trim());
         }
 
+        public User? FindById(Guid id) => _users.Values.FirstOrDefault(user => user.Id == id);
+
         public IEnumerable<User> GetAll() => _users.Values.OrderBy(user => user.Username);
     }
 }

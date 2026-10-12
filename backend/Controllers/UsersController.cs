@@ -11,10 +11,12 @@ namespace PollSystem.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IPollService _pollService;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, IPollService pollService)
         {
             _userService = userService;
+            _pollService = pollService;
         }
 
         [HttpPost("register")]
@@ -86,6 +88,63 @@ namespace PollSystem.Controllers
                 return NotFound();
                 
             return Ok(profile);
+        }
+
+        [Authorize]
+        [HttpPost("users/{username}/follow")]
+        public async Task<IActionResult> FollowUser(string username)
+        {
+            try
+            {
+                await _userService.FollowUserAsync(User.FindFirstValue(ClaimTypes.NameIdentifier), username);
+                return NoContent();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = "User not found." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpDelete("users/{username}/follow")]
+        public async Task<IActionResult> UnfollowUser(string username)
+        {
+            try
+            {
+                await _userService.UnfollowUserAsync(User.FindFirstValue(ClaimTypes.NameIdentifier), username);
+                return NoContent();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = "User not found." });
+            }
+        }
+
+        [Authorize]
+        [HttpGet("users/following")]
+        public IActionResult GetFollowing()
+        {
+            return Ok(_userService.GetFollowingProfiles(User.FindFirstValue(ClaimTypes.NameIdentifier)));
+        }
+
+        [Authorize]
+        [HttpGet("users/following/votes")]
+        public async Task<IActionResult> GetFollowingVotes()
+        {
+            await _pollService.ResolveClosedPollsAsync();
+            return Ok(_userService.GetFollowingVotes(User.FindFirstValue(ClaimTypes.NameIdentifier)));
         }
     }
 }

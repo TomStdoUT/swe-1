@@ -9,6 +9,18 @@ namespace PollSystem.Models.DTOs
         int PointsBalance,
         int CorrectPredictions,
         int TotalResolvedVotes,
-        double? AccuracyRate
+        double? AccuracyRate,
+        int FollowerCount,
+        int FollowingCount
+    );
+
+    public record FollowingVoteDto(
+        Guid PollId,
+        string Question,
+        string Category,
+        string Username,
+        List<string> Selections,
+        bool WasCorrect,
+        DateTime PollClosedAt
     );
 }

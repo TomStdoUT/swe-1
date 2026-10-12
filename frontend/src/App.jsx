@@ -4,6 +4,7 @@ import { MiniFeed } from './components/MiniFeed';
 import { FullFeed } from './components/FullFeed';
 import { Login } from './pages/Login';
 import { PublicProfiles } from './pages/PublicProfiles';
+import { FollowingFeed } from './pages/FollowingFeed';
 import './App.css';
 
 function App() {
@@ -76,6 +77,9 @@ function App() {
         <button type="button" onClick={() => setCurrentView('profiles')}>
           Public profiles
         </button>
+        <button type="button" onClick={() => setCurrentView('following')}>
+          Following feed
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -112,7 +116,9 @@ function App() {
           )}
         </div>
       ) : currentView === 'profiles' ? (
-        <PublicProfiles onBack={() => setCurrentView('creator')} />
+        <PublicProfiles onBack={() => setCurrentView('creator')} currentUsername={username} />
+      ) : currentView === 'following' ? (
+        <FollowingFeed onBack={() => setCurrentView('creator')} />
       ) : currentView === 'creator' ? (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', padding: '20px', alignItems: 'flex-start' }}>
           <CategorizedPoll
