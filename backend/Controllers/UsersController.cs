@@ -136,23 +136,22 @@ namespace PollSystem.Controllers
         [HttpPost("users/buy/{item}")]
         public async Task<IActionResult> BuyCosmetic(string item)
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = _userService.GetUser(username);
-
-            if (user == null) return Unauthorized();
-
-            if (user.PurchasedCosmetics.Contains(item))
-                return BadRequest(new { error = "You already own this cosmetic!" });
-
-            if (user.PointsBalance < 20)
-                return BadRequest(new { error = "Insufficient points balance (costs 20 points)." });
-
-            user.PointsBalance -= 20;
-            user.PurchasedCosmetics.Add(item);
-
-            await _userService.SaveStateAsync();
-
-            return Ok(new { message = "Purchased successfully!", remainingPoints = user.PointsBalance });
+            try
+            {
+                var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                await _userService.BuyCosmeticAsync(username, item);
+                
+                var user = _userService.GetUser(username);
+                return Ok(new { message = "Purchased successfully!", remainingPoints = user?.PointsBalance ?? 0 });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [Authorize]
