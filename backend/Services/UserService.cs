@@ -121,6 +121,8 @@ namespace PollSystem.Services
                 await _userRepo.SaveStateAsync();
         }
 
+        public async Task SaveStateAsync() => await _userRepo.SaveStateAsync();
+
         public IEnumerable<UserProfileDto> GetFollowingProfiles(string? username)
         {
             var user = _userRepo.FindByUsername(username);
@@ -175,7 +177,8 @@ namespace PollSystem.Services
                 totalResolvedVotes,
                 accuracyRate,
                 _userRepo.GetAll().Count(follower => follower.IsFollowing(user.Id)),
-                user.FollowingUserIds.Count
+                user.FollowingUserIds.Count,
+                user.PurchasedCosmetics ?? new List<string>()
             );
         }
 

@@ -133,6 +133,29 @@ namespace PollSystem.Controllers
         }
 
         [Authorize]
+        [HttpPost("users/buy/{item}")]
+        public async Task<IActionResult> BuyCosmetic(string item)
+        {
+            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var user = _userService.GetUser(username);
+
+            if (user == null) return Unauthorized();
+
+            if (user.PurchasedCosmetics.Contains(item))
+                return BadRequest(new { error = "You already own this cosmetic!" });
+
+            if (user.PointsBalance < 20)
+                return BadRequest(new { error = "Insufficient points balance (costs 20 points)." });
+
+            user.PointsBalance -= 20;
+            user.PurchasedCosmetics.Add(item);
+
+            await _userService.SaveStateAsync();
+
+            return Ok(new { message = "Purchased successfully!", remainingPoints = user.PointsBalance });
+        }
+
+        [Authorize]
         [HttpGet("users/following")]
         public IActionResult GetFollowing()
         {
