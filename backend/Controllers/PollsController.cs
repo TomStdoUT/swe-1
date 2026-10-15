@@ -23,6 +23,7 @@ namespace PollSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllPolls()
         {
+            await _pollService.EnsureDailyQuestionAsync();
             await _pollService.ResolveClosedPollsAsync();
 
             var username = User.FindFirstValue(ClaimTypes.NameIdentifier);

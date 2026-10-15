@@ -38,6 +38,7 @@ namespace PollSystem.Services
                     p.AllowMultiple,
                     p.Comments,
                     p.IsResolved,
+                    p.IsDailyChallenge,
                     WinningOptions = p.IsResolved ? p.GetWinningOptions() : new List<int>(),
                     Votes = p.Votes.Where(v => v.UserId == activeUserId).ToList(),
                     TotalVotesCount = p.Votes.Count()
@@ -159,6 +160,40 @@ namespace PollSystem.Services
                 await _pollRepo.SaveStateAsync();
                 await _userRepo.SaveStateAsync();
             }
+        }
+
+        public async Task EnsureDailyQuestionAsync()
+        {
+            var localNow = DateTime.Now;
+            bool exists = _pollRepo.GetAll().Any(p => p.IsDailyChallenge && p.CreatedAt.ToLocalTime().Date == localNow.Date);
+            if (exists) return;
+
+            var questions = new[]
+            {
+                new { Question = "Is today a nice day?", Category = "Fun", Options = new List<string> { "Yes", "No" } },
+                new { Question = "Will it rain tomorrow?", Category = "Fun", Options = new List<string> { "Yes", "No" } },
+                new { Question = "Is remote work better than office work?", Category = "Technology", Options = new List<string> { "Remote", "Office" } },
+                new { Question = "Will artificial intelligence transform software engineering completely by 2030?", Category = "Technology", Options = new List<string> { "Yes", "No" } },
+                new { Question = "Is coffee better than tea?", Category = "Fun", Options = new List<string> { "Coffee", "Tea" } }
+            };
+
+            var random = new Random();
+            var selected = questions[random.Next(questions.Length)];
+
+            var poll = new Poll
+            {
+                CreatorId = Guid.Empty,
+                Question = "[Daily Challenge] " + selected.Question,
+                Category = selected.Category,
+                Tags = new List<string> { "DailyChallenge", "Featured" },
+                Options = selected.Options.Select(opt => new PollOption(opt)).ToList(),
+                ClosingTime = localNow.Date.AddDays(1).ToUniversalTime(),
+                AllowMultiple = false,
+                IsDailyChallenge = true
+            };
+
+            _pollRepo.Add(poll);
+            await _pollRepo.SaveStateAsync();
         }
 
         private Guid GenerateDeterministicId(string? username)

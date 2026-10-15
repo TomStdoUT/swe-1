@@ -104,8 +104,7 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
   };
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>
-      
+    <div style={{ border: poll.isDailyChallenge ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>      
       {poll.creatorId === userId && (
         <button
           onClick={() => onDelete(poll.id)}
@@ -115,8 +114,12 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
         </button>
       )}
 
-      <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>
-      <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
+    {poll.isDailyChallenge && (
+            <div style={{ display: 'inline-block', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px', marginBottom: '8px' }}>
+              ★ Daily Challenge • 2x Points
+            </div>
+          )}
+          <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>      <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
       
       <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
       
