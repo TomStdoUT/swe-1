@@ -21,11 +21,8 @@ namespace PollSystem.Controllers
 
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetAllPolls()
+        public IActionResult GetAllPolls()
         {
-            await _pollService.EnsureDailyQuestionAsync();
-            await _pollService.ResolveClosedPollsAsync();
-
             var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var feed = _pollService.GetFeedForUser(username);
             

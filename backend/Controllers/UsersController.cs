@@ -141,9 +141,8 @@ namespace PollSystem.Controllers
 
         [Authorize]
         [HttpGet("users/following/votes")]
-        public async Task<IActionResult> GetFollowingVotes()
+        public IActionResult GetFollowingVotes()
         {
-            await _pollService.ResolveClosedPollsAsync();
             return Ok(_userService.GetFollowingVotes(User.FindFirstValue(ClaimTypes.NameIdentifier)));
         }
     }

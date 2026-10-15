@@ -42,6 +42,7 @@ builder.Services.AddSingleton<IUserRepository>(sp => new UserRepository(
 builder.Services.AddTransient<IPollService, PollService>();
 builder.Services.AddTransient<IUserService, UserService>();
 builder.Services.AddTransient<INotificationService, NotificationService>();
+builder.Services.AddHostedService<PollBackgroundWorker>();
 
 var app = builder.Build();
 
