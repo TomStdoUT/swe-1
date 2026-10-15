@@ -70,6 +70,23 @@
   font-weight: 600;
 }
 
+.profile-follow-button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 9px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: #fff;
+  background: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.profile-follow-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .profiles-error {
   margin-bottom: 16px;
   color: #dc2626;

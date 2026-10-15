@@ -87,6 +87,78 @@ namespace PollSystem.Services
             return _userRepo.GetAll().Select(CreateProfileDto);
         }
 
+        public async Task FollowUserAsync(string? followerUsername, string followedUsername)
+        {
+            var follower = _userRepo.FindByUsername(followerUsername);
+            var followed = _userRepo.FindByUsername(followedUsername);
+
+            if (follower is null)
+                throw new UnauthorizedAccessException("Sign in to follow users.");
+            if (followed is null)
+                throw new KeyNotFoundException("User not found.");
+            if (follower.Id == followed.Id)
+                throw new InvalidOperationException("You cannot follow yourself.");
+
+            if (!follower.FollowingUserIds.Contains(followed.Id))
+            {
+                follower.FollowingUserIds.Add(followed.Id);
+                await _userRepo.SaveStateAsync();
+            }
+        }
+
+        public async Task UnfollowUserAsync(string? followerUsername, string followedUsername)
+        {
+            var follower = _userRepo.FindByUsername(followerUsername);
+            var followed = _userRepo.FindByUsername(followedUsername);
+
+            if (follower is null)
+                throw new UnauthorizedAccessException("Sign in to follow users.");
+            if (followed is null)
+                throw new KeyNotFoundException("User not found.");
+
+            if (follower.FollowingUserIds.Remove(followed.Id))
+                await _userRepo.SaveStateAsync();
+        }
+
+        public IEnumerable<UserProfileDto> GetFollowingProfiles(string? username)
+        {
+            var user = _userRepo.FindByUsername(username);
+            if (user is null) return Enumerable.Empty<UserProfileDto>();
+
+            return user.FollowingUserIds
+                .Select(_userRepo.FindById)
+                .Where(followed => followed is not null)
+                .Select(followed => CreateProfileDto(followed!));
+        }
+
+        public IEnumerable<FollowingVoteDto> GetFollowingVotes(string? username)
+        {
+            var user = _userRepo.FindByUsername(username);
+            if (user is null) return Enumerable.Empty<FollowingVoteDto>();
+
+            var followedIds = user.FollowingUserIds.ToHashSet();
+            var usersById = _userRepo.GetAll().ToDictionary(followed => followed.Id);
+
+            return _pollRepo.GetAll()
+                .Where(poll => poll.IsResolved)
+                .SelectMany(poll => poll.Votes
+                    .Where(vote => followedIds.Contains(vote.UserId) && usersById.ContainsKey(vote.UserId))
+                    .Select(vote => new FollowingVoteDto(
+                        poll.Id,
+                        poll.Question,
+                        poll.Category,
+                        usersById[vote.UserId].Username,
+                        vote.OptionIndices
+                            .Where(index => index >= 0 && index < poll.Options.Count)
+                            .Select(index => poll.Options[index].text)
+                            .ToList(),
+                        vote.OptionIndices.Any(poll.GetWinningOptions().Contains),
+                        poll.ClosingTime
+                    )))
+                .OrderByDescending(vote => vote.PollClosedAt)
+                .Take(50);
+        }
+
         private UserProfileDto CreateProfileDto(User user)
         {
             var (correctPredictions, totalResolvedVotes) = CalculateAccuracyStats(user.Id);
@@ -100,7 +172,9 @@ namespace PollSystem.Services
                 user.PointsBalance,
                 correctPredictions,
                 totalResolvedVotes,
-                accuracyRate
+                accuracyRate,
+                _userRepo.GetAll().Count(follower => follower.FollowingUserIds.Contains(user.Id)),
+                user.FollowingUserIds.Count
             );
         }
 

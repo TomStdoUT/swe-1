@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import './PublicProfiles.css';
 
-export function PublicProfiles({ onBack }) {
+export function PublicProfiles({ onBack, currentUsername }) {
   const [profiles, setProfiles] = useState([]);
+  const [following, setFollowing] = useState(new Set());
   const [error, setError] = useState('');
+  const [updatingUser, setUpdatingUser] = useState('');
 
   useEffect(() => {
     let isActive = true;
@@ -20,6 +22,17 @@ export function PublicProfiles({ onBack }) {
           setProfiles(data);
           setError('');
         }
+
+        const token = sessionStorage.getItem('poll-token');
+        if (token) {
+          const followingResponse = await fetch('/api/users/following', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (followingResponse.ok) {
+            const followedProfiles = await followingResponse.json();
+            if (isActive) setFollowing(new Set(followedProfiles.map((profile) => profile.id)));
+          }
+        }
       } catch {
         if (isActive) {
           setError('Could not load profiles. Please try again.');
@@ -35,6 +48,36 @@ export function PublicProfiles({ onBack }) {
       clearInterval(refreshInterval);
     };
   }, []);
+
+  const toggleFollow = async (profile) => {
+    const shouldFollow = !following.has(profile.id);
+    setUpdatingUser(profile.username);
+
+    try {
+      const response = await fetch(`/api/users/${encodeURIComponent(profile.username)}/follow`, {
+        method: shouldFollow ? 'POST' : 'DELETE',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('poll-token')}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not update follow status. Please try again.');
+      }
+
+      setFollowing((previous) => {
+        const updated = new Set(previous);
+        if (shouldFollow) updated.add(profile.id);
+        else updated.delete(profile.id);
+        return updated;
+      });
+      setProfiles((previous) => previous.map((item) => item.id === profile.id
+        ? { ...item, followerCount: item.followerCount + (shouldFollow ? 1 : -1) }
+        : item));
+    } catch (followError) {
+      setError(followError.message);
+    } finally {
+      setUpdatingUser('');
+    }
+  };
 
   return (
     <main className="profiles-page">
@@ -74,7 +117,27 @@ export function PublicProfiles({ onBack }) {
                   {profile.correctPredictions} / {profile.totalResolvedVotes}
                 </dd>
               </div>
+              <div>
+                <dt>Followers</dt>
+                <dd>{profile.followerCount}</dd>
+              </div>
+              <div>
+                <dt>Following</dt>
+                <dd>{profile.followingCount}</dd>
+              </div>
             </dl>
+            {currentUsername?.toLowerCase() !== profile.username.toLowerCase() && (
+              <button
+                className="profile-follow-button"
+                type="button"
+                disabled={updatingUser === profile.username}
+                onClick={() => toggleFollow(profile)}
+              >
+                {updatingUser === profile.username
+                  ? 'Saving…'
+                  : following.has(profile.id) ? 'Unfollow' : 'Follow'}
+              </button>
+            )}
           </article>
         ))}
       </div>

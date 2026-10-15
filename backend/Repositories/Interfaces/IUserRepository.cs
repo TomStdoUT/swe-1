@@ -8,6 +8,7 @@ namespace PollSystem.Repositories.Interfaces
         Task SaveStateAsync();
         void Add(User user);
         User? FindByUsername(string? username);
+        User? FindById(Guid id);
         IEnumerable<User> GetAll();
     }
 }
