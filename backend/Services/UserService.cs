@@ -7,6 +7,7 @@ using PollSystem.Models.DTOs;
 using PollSystem.Models.Entities;
 using PollSystem.Repositories.Interfaces;
 using PollSystem.Services.Interfaces;
+using PollSystem.Extensions;
 
 namespace PollSystem.Services
 {
@@ -99,7 +100,7 @@ namespace PollSystem.Services
             if (follower.Id == followed.Id)
                 throw new InvalidOperationException("You cannot follow yourself.");
 
-            if (!follower.FollowingUserIds.Contains(followed.Id))
+            if (!follower.IsFollowing(followed.Id))
             {
                 follower.FollowingUserIds.Add(followed.Id);
                 await _userRepo.SaveStateAsync();
@@ -173,7 +174,7 @@ namespace PollSystem.Services
                 correctPredictions,
                 totalResolvedVotes,
                 accuracyRate,
-                _userRepo.GetAll().Count(follower => follower.FollowingUserIds.Contains(user.Id)),
+                _userRepo.GetAll().Count(follower => follower.IsFollowing(user.Id)),
                 user.FollowingUserIds.Count
             );
         }

@@ -149,7 +149,11 @@ namespace PollSystem.Services
                         ? $"Poll '{poll.Question}' has ended. Your choice won! You won {netProfit} points. Total votes: {totalVotes}, Comments: {totalComments}."
                         : $"Poll '{poll.Question}' has ended. Your choice lost! You lost your {totalBetted} betted points. Total votes: {totalVotes}, Comments: {totalComments}.";
 
-                    _notificationRepo.Add(new Notification(userId, content));
+                    _notificationRepo.Add(new Notification(
+                        targetUserId: userId,
+                        content: content,
+                        type: NotificationType.PollResult
+                    ));
                 }
 
                 anyResolved = true;
