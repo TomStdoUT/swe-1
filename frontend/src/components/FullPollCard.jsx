@@ -114,12 +114,14 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
         </button>
       )}
 
-    {poll.isDailyChallenge && (
-            <div style={{ display: 'inline-block', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px', marginBottom: '8px' }}>
-              ★ Daily Challenge • 2x Points
-            </div>
-          )}
-          <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>      <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
+      {poll.isDailyChallenge && (
+        <div style={{ display: 'inline-block', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px', marginBottom: '8px' }}>
+          ★ Daily Challenge • 2x Points
+        </div>
+      )}
+      
+      <h2 style={{ marginTop: 0, paddingRight: '80px' }}>{poll.question}</h2>
+      <p style={{ fontSize: '14px', color: 'var(--text)' }}>Category: {poll.category}</p>
       
       <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />
       

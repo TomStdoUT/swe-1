@@ -8,6 +8,7 @@ namespace PollSystem.Repositories
     {
         private readonly List<Poll> _polls = new();
         private readonly string _filePath = "poll_snapshot.json";
+        private readonly SemaphoreSlim _stateLock = new(1, 1);
 
         public IEnumerable<Poll> GetAll() => _polls;
         
@@ -19,20 +20,38 @@ namespace PollSystem.Repositories
 
         public async Task SaveStateAsync()
         {
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            await using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await JsonSerializer.SerializeAsync(stream, _polls, options);
+            await _stateLock.WaitAsync();
+            try
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                await using var stream = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                await JsonSerializer.SerializeAsync(stream, _polls, options);
+            }
+            finally
+            {
+                _stateLock.Release();
+            }
         }
 
         public async Task LoadStateAsync()
         {
             if (!File.Exists(_filePath)) return;
-            await using var stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            var loaded = await JsonSerializer.DeserializeAsync<List<Poll>>(stream);
-            if (loaded != null)
+            
+            await _stateLock.WaitAsync();
+            try
             {
-                _polls.Clear();
-                _polls.AddRange(loaded);
+                await using var stream = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var loaded = await JsonSerializer.DeserializeAsync<List<Poll>>(stream);
+                
+                if (loaded != null)
+                {
+                    _polls.Clear();
+                    _polls.AddRange(loaded);
+                }
+            }
+            finally
+            {
+                _stateLock.Release();
             }
         }
     }
