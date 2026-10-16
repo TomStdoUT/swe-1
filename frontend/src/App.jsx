@@ -64,6 +64,7 @@ function App() {
     setUsername(user.username);
     setUserId(user.id);
     setUserPoints(user.pointsBalance);
+    setUserCosmetics(user.purchasedCosmetics || []);
   };
 
   if (restoring) return null;
@@ -97,6 +98,7 @@ function App() {
             sessionStorage.removeItem('poll-token');
             setUsername(null);
             setUserPoints(100);
+            setUserCosmetics([]);
             setRefreshTrigger(prev => prev + 1);
           }}
         >
@@ -126,7 +128,14 @@ function App() {
           )}
         </div>
       ) : currentView === 'profiles' ? (
-        <PublicProfiles onBack={() => setCurrentView('creator')} currentUsername={username} />
+        <PublicProfiles 
+          onBack={() => setCurrentView('creator')} 
+          currentUsername={username} 
+          onPurchaseSuccess={(points, cosmetics) => {
+            setUserPoints(points);
+            setUserCosmetics(cosmetics);
+          }}
+        />
       ) : currentView === 'following' ? (
         <FollowingFeed onBack={() => setCurrentView('creator')} />
       ) : currentView === 'creator' ? (

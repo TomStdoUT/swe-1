@@ -215,24 +215,36 @@ namespace PollSystem.Services
 
             return (correctPredictions, totalResolvedVotes);
         }
-    public async Task BuyCosmeticAsync(string? username, string item)
+
+        public async Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(string? username, string item)
         {
             var user = _userRepo.FindByUsername(username);
 
             if (user == null)
                 throw new UnauthorizedAccessException("User not found.");
 
+            var storePrices = new Dictionary<string, int>
+            {
+                { "gold_name", 20 },
+                { "glow_border", 20 },
+                { "vip_badge", 20 }
+            };
+
+            if (!storePrices.TryGetValue(item, out int cost))
+                throw new ArgumentException("Item does not exist.");
+
             if (user.PurchasedCosmetics.Contains(item))
                 throw new InvalidOperationException("You already own this cosmetic!");
 
-            if (user.PointsBalance < 20)
-                throw new InvalidOperationException("Insufficient points balance (costs 20 points).");
+            if (user.PointsBalance < cost)
+                throw new InvalidOperationException($"Insufficient points balance (costs {cost} points).");
 
-            user.PointsBalance -= 20;
+            user.PointsBalance -= cost;
             user.PurchasedCosmetics.Add(item);
 
             await _userRepo.SaveStateAsync();
+
+            return (user.PointsBalance, user.PurchasedCosmetics);
         }
-    
     }
 }

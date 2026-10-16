@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './PublicProfiles.css';
 
-export function PublicProfiles({ onBack, currentUsername }) {
+export function PublicProfiles({ onBack, currentUsername, onPurchaseSuccess }) {
   const [profiles, setProfiles] = useState([]);
   const [following, setFollowing] = useState(new Set());
   const [error, setError] = useState('');
@@ -87,8 +87,18 @@ export function PublicProfiles({ onBack, currentUsername }) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to buy');
+      
       alert('Purchased!');
-      window.location.reload();
+      
+      if (onPurchaseSuccess && data.remainingPoints !== undefined) {
+        onPurchaseSuccess(data.remainingPoints, data.purchasedCosmetics);
+        
+        setProfiles(prevProfiles => prevProfiles.map(p => 
+          p.username === currentUsername 
+            ? { ...p, pointsBalance: data.remainingPoints, purchasedCosmetics: data.purchasedCosmetics }
+            : p
+        ));
+      }
     } catch (e) {
       alert(e.message);
     }

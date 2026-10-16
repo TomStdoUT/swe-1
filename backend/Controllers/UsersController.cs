@@ -139,16 +139,19 @@ namespace PollSystem.Controllers
             try
             {
                 var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                await _userService.BuyCosmeticAsync(username, item);
+                var result = await _userService.BuyCosmeticAsync(username, item);
                 
-                var user = _userService.GetUser(username);
-                return Ok(new { message = "Purchased successfully!", remainingPoints = user?.PointsBalance ?? 0 });
+                return Ok(new { 
+                    message = "Purchased successfully!", 
+                    remainingPoints = result.RemainingPoints,
+                    purchasedCosmetics = result.Cosmetics 
+                });
             }
             catch (UnauthorizedAccessException ex)
             {
                 return Unauthorized(new { error = ex.Message });
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)
             {
                 return BadRequest(new { error = ex.Message });
             }
