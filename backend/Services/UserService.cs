@@ -121,6 +121,8 @@ namespace PollSystem.Services
                 await _userRepo.SaveStateAsync();
         }
 
+        public async Task SaveStateAsync() => await _userRepo.SaveStateAsync();
+
         public IEnumerable<UserProfileDto> GetFollowingProfiles(string? username)
         {
             var user = _userRepo.FindByUsername(username);
@@ -175,7 +177,8 @@ namespace PollSystem.Services
                 totalResolvedVotes,
                 accuracyRate,
                 _userRepo.GetAll().Count(follower => follower.IsFollowing(user.Id)),
-                user.FollowingUserIds.Count
+                user.FollowingUserIds.Count,
+                user.PurchasedCosmetics ?? new List<string>()
             );
         }
 
@@ -212,5 +215,24 @@ namespace PollSystem.Services
 
             return (correctPredictions, totalResolvedVotes);
         }
+    public async Task BuyCosmeticAsync(string? username, string item)
+        {
+            var user = _userRepo.FindByUsername(username);
+
+            if (user == null)
+                throw new UnauthorizedAccessException("User not found.");
+
+            if (user.PurchasedCosmetics.Contains(item))
+                throw new InvalidOperationException("You already own this cosmetic!");
+
+            if (user.PointsBalance < 20)
+                throw new InvalidOperationException("Insufficient points balance (costs 20 points).");
+
+            user.PointsBalance -= 20;
+            user.PurchasedCosmetics.Add(item);
+
+            await _userRepo.SaveStateAsync();
+        }
+    
     }
 }

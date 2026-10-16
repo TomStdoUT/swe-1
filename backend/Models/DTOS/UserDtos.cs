@@ -11,7 +11,8 @@ namespace PollSystem.Models.DTOs
         int TotalResolvedVotes,
         double? AccuracyRate,
         int FollowerCount,
-        int FollowingCount
+        int FollowingCount,
+        List<string> PurchasedCosmetics
     );
 
     public record FollowingVoteDto(

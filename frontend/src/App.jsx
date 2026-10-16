@@ -11,6 +11,7 @@ function App() {
   const [username, setUsername] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userPoints, setUserPoints] = useState(0);
+  const [userCosmetics, setUserCosmetics] = useState([]);
   const [restoring, setRestoring] = useState(() => Boolean(sessionStorage.getItem('poll-token')));
   const [currentView, setCurrentView] = useState('creator');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -51,6 +52,7 @@ function App() {
           setUserPoints(data.pointsBalance);
           setUsername(data.username);
           setUserId(data.id);
+          setUserCosmetics(data.purchasedCosmetics || []);
         }
       })
       .catch(() => {})
@@ -70,12 +72,20 @@ function App() {
   return (
     <div style={{ paddingBottom: '70px' }}>
       <header className="app-user-bar">
-        <span>Signed in as <strong>{username}</strong></span>
+        <span>
+          Signed in as{' '}
+          <strong style={{
+            color: userCosmetics.includes('gold_name') ? '#d97706' : 'inherit',
+            textShadow: userCosmetics.includes('glow_border') ? '0 0 8px #a855f7' : 'none'
+          }}>
+            {username} {userCosmetics.includes('vip_badge') && '★ VIP'}
+          </strong>
+        </span>
         <button type="button" onClick={() => setCurrentView('notifications')}>
           Notifications ({unreadNotifications.length})
         </button>
         <button type="button" onClick={() => setCurrentView('profiles')}>
-          Public profiles
+          Profiles & Store
         </button>
         <button type="button" onClick={() => setCurrentView('following')}>
           Following feed

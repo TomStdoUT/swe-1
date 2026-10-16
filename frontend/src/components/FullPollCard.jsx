@@ -197,7 +197,7 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
           border: `1px solid ${isWinner ? '#bbf7d0' : '#fecaca'}`
         }}>
           {isWinner 
-            ? `Correct! Your answer won. You have won ${bet * 2}${poll.votes[0]?.isEarlyBird ? ' (1.5x Early Bird!)' : ''} points!` 
+            ? `Correct! Your answer won. You have won ${Math.floor(bet * (poll.isDailyChallenge ? 2.0 : (poll.votes[0]?.isEarlyBird ? 1.5 : 1.0)))}${poll.votes[0]?.isEarlyBird ? ' (1.5x Early Bird!)' : ''} points!` 
             : `Incorrect. Your choice has lost. You have lost your betted points.`}
         </div>
       )}
