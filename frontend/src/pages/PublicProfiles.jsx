@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './PublicProfiles.css';
 
-export function PublicProfiles({ onBack, currentUsername }) {
+export function PublicProfiles({ onBack, currentUsername, onPurchaseSuccess }) {
   const [profiles, setProfiles] = useState([]);
   const [following, setFollowing] = useState(new Set());
   const [error, setError] = useState('');
@@ -79,16 +79,59 @@ export function PublicProfiles({ onBack, currentUsername }) {
     }
   };
 
+  const buyCosmetic = async (itemKey) => {
+    try {
+      const response = await fetch(`/api/users/buy/${itemKey}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('poll-token')}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to buy');
+      
+      alert('Purchased!');
+      
+      if (onPurchaseSuccess && data.remainingPoints !== undefined) {
+        onPurchaseSuccess(data.remainingPoints, data.purchasedCosmetics);
+        
+        setProfiles(prevProfiles => prevProfiles.map(p => 
+          p.username === currentUsername 
+            ? { ...p, pointsBalance: data.remainingPoints, purchasedCosmetics: data.purchasedCosmetics }
+            : p
+        ));
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  const storeItems = [
+    { key: 'gold_name', name: 'Gold Username', cost: 20 },
+    { key: 'glow_border', name: 'Glowing Border', cost: 20 },
+    { key: 'vip_badge', name: 'VIP Badge', cost: 20 }
+  ];
+
   return (
     <main className="profiles-page">
       <div className="profiles-heading">
         <div>
-          <h1>Public profiles</h1>
-          <p>Points and accuracy update as polls close.</p>
+          <h1>Public profiles & Store</h1>
+          <p>Spend 20 points to unlock cosmetics.</p>
         </div>
         <button type="button" onClick={onBack}>
           Back
         </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', justifyContent: 'center' }}>
+        {storeItems.map(item => (
+          <button 
+            key={item.key} 
+            onClick={() => buyCosmetic(item.key)}
+            style={{ padding: '8px 12px', border: '1px solid var(--accent)', background: 'var(--bg)', borderRadius: '6px', cursor: 'pointer' }}
+          >
+            Buy {item.name} ({item.cost} pts)
+          </button>
+        ))}
       </div>
 
       {error && <p className="profiles-error" role="alert">{error}</p>}
@@ -97,7 +140,12 @@ export function PublicProfiles({ onBack, currentUsername }) {
       <div className="profile-list">
         {profiles.map((profile) => (
           <article className="profile-card" key={profile.id}>
-            <h2>{profile.username}</h2>
+            <h2 style={{ 
+              color: profile.purchasedCosmetics?.includes('gold_name') ? '#d97706' : 'inherit',
+              boxShadow: profile.purchasedCosmetics?.includes('glow_border') ? '0 0 10px #a855f7' : 'none'
+            }}>
+              {profile.username} {profile.purchasedCosmetics?.includes('vip_badge') && '★ VIP'}
+            </h2>
             <dl>
               <div>
                 <dt>Points</dt>

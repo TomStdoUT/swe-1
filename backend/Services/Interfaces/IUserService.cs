@@ -12,6 +12,8 @@ namespace PollSystem.Services.Interfaces
         IEnumerable<UserProfileDto> GetAllUserProfiles();
         Task FollowUserAsync(string? followerUsername, string followedUsername);
         Task UnfollowUserAsync(string? followerUsername, string followedUsername);
+        Task SaveStateAsync();
+        Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(string? username, string item);
         IEnumerable<UserProfileDto> GetFollowingProfiles(string? username);
         IEnumerable<FollowingVoteDto> GetFollowingVotes(string? username);
     }

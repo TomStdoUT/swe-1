@@ -121,6 +121,8 @@ namespace PollSystem.Services
                 await _userRepo.SaveStateAsync();
         }
 
+        public async Task SaveStateAsync() => await _userRepo.SaveStateAsync();
+
         public IEnumerable<UserProfileDto> GetFollowingProfiles(string? username)
         {
             var user = _userRepo.FindByUsername(username);
@@ -175,7 +177,8 @@ namespace PollSystem.Services
                 totalResolvedVotes,
                 accuracyRate,
                 _userRepo.GetAll().Count(follower => follower.IsFollowing(user.Id)),
-                user.FollowingUserIds.Count
+                user.FollowingUserIds.Count,
+                user.PurchasedCosmetics ?? new List<string>()
             );
         }
 
@@ -211,6 +214,37 @@ namespace PollSystem.Services
             }
 
             return (correctPredictions, totalResolvedVotes);
+        }
+
+        public async Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(string? username, string item)
+        {
+            var user = _userRepo.FindByUsername(username);
+
+            if (user == null)
+                throw new UnauthorizedAccessException("User not found.");
+
+            var storePrices = new Dictionary<string, int>
+            {
+                { "gold_name", 20 },
+                { "glow_border", 20 },
+                { "vip_badge", 20 }
+            };
+
+            if (!storePrices.TryGetValue(item, out int cost))
+                throw new ArgumentException("Item does not exist.");
+
+            if (user.PurchasedCosmetics.Contains(item))
+                throw new InvalidOperationException("You already own this cosmetic!");
+
+            if (user.PointsBalance < cost)
+                throw new InvalidOperationException($"Insufficient points balance (costs {cost} points).");
+
+            user.PointsBalance -= cost;
+            user.PurchasedCosmetics.Add(item);
+
+            await _userRepo.SaveStateAsync();
+
+            return (user.PointsBalance, user.PurchasedCosmetics);
         }
     }
 }

@@ -133,6 +133,31 @@ namespace PollSystem.Controllers
         }
 
         [Authorize]
+        [HttpPost("users/buy/{item}")]
+        public async Task<IActionResult> BuyCosmetic(string item)
+        {
+            try
+            {
+                var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var result = await _userService.BuyCosmeticAsync(username, item);
+                
+                return Ok(new { 
+                    message = "Purchased successfully!", 
+                    remainingPoints = result.RemainingPoints,
+                    purchasedCosmetics = result.Cosmetics 
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [Authorize]
         [HttpGet("users/following")]
         public IActionResult GetFollowing()
         {
