@@ -31,8 +31,10 @@ namespace PollSystem.Services
                     p.CreatorId,
                     p.Question,
                     p.Category,
-                    p.Tags,
-                    p.Options,
+                    Tags = p.Tags.OrderBy(tag => tag.Value).Select(tag => tag.Value).ToList(),
+                    Options = p.Options.OrderBy(option => option.Position)
+                        .Select(option => new { option.text })
+                        .ToList(),
                     p.ClosingTime,
                     p.CreatedAt,
                     p.AllowMultiple,
@@ -57,8 +59,11 @@ namespace PollSystem.Services
                 CreatorId = creatorId,
                 Question = dto.Question,
                 Category = dto.Category,
-                Tags = dto.Tags,
-                Options = dto.Options.Select(opt => new PollOption(opt)).ToList(),
+                Tags = dto.Tags.Select(tag => new PollTag { Value = tag }).ToList(),
+                Options = dto.Options.Select((option, position) => new PollOption(option)
+                {
+                    Position = position
+                }).ToList(),
                 ClosingTime = DateTime.UtcNow.AddSeconds(totalSeconds),
                 AllowMultiple = dto.AllowMultiple
             };
@@ -189,8 +194,15 @@ namespace PollSystem.Services
                 CreatorId = Guid.Empty,
                 Question = "[Daily Challenge] " + selected.Question,
                 Category = selected.Category,
-                Tags = new List<string> { "DailyChallenge", "Featured" },
-                Options = selected.Options.Select(opt => new PollOption(opt)).ToList(),
+                Tags = new List<PollTag>
+                {
+                    new() { Value = "DailyChallenge" },
+                    new() { Value = "Featured" }
+                },
+                Options = selected.Options.Select((option, position) => new PollOption(option)
+                {
+                    Position = position
+                }).ToList(),
                 ClosingTime = localNow.Date.AddDays(1).ToUniversalTime(),
                 AllowMultiple = false,
                 IsDailyChallenge = true

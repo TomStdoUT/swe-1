@@ -6,8 +6,9 @@ namespace PollSystem.Models.Entities
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public int PointsBalance { get; set; } = 100;
-        public List<Guid> FollowingUserIds { get; set; } = new();
-        public List<string> PurchasedCosmetics { get; set; } = new();
+        public List<UserFollow> Following { get; set; } = new();
+        public List<UserFollow> Followers { get; set; } = new();
+        public List<UserCosmetic> Cosmetics { get; set; } = new();
 
         public User() { }
 

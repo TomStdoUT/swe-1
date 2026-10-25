@@ -9,6 +9,5 @@ namespace PollSystem.Repositories.Interfaces
         void Add(Poll poll);
         void Remove(Poll poll);
         Task SaveStateAsync();
-        Task LoadStateAsync();
     }
 }

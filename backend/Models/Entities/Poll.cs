@@ -1,16 +1,12 @@
-using System.Text.Json.Serialization;
-
 namespace PollSystem.Models.Entities
 {
-    public record PollOption(string text);
-
     public class Poll : IEquatable<Poll>, IComparable<Poll>
     {
         public Guid Id { get; init; } = Guid.NewGuid();
         public Guid CreatorId { get; init; }
         public string Question { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
-        public List<string> Tags { get; set; } = new();
+        public List<PollTag> Tags { get; set; } = new();
         public List<PollOption> Options { get; set; } = new();
         public DateTime ClosingTime { get; set; }
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
@@ -21,9 +17,7 @@ namespace PollSystem.Models.Entities
 
         public List<Comment> Comments { get; set; } = new();
 
-        [JsonInclude]
-        private readonly List<Vote> _votes = new();
-        public IEnumerable<Vote> Votes => _votes.AsReadOnly();
+        public List<Vote> Votes { get; set; } = new();
 
         public bool IsClosed() => DateTime.UtcNow >= ClosingTime;
 
@@ -62,7 +56,7 @@ namespace PollSystem.Models.Entities
                 IsEarlyBird = totalSeconds > 0 && (elapsedSeconds / totalSeconds) <= 0.20
             };
 
-            _votes.Add(finalizedVote);
+            Votes.Add(finalizedVote);
         }
 
         // Domain Logic: Resolves the poll securely and generates a payout dictionary
@@ -77,7 +71,7 @@ namespace PollSystem.Models.Entities
             var winningIndices = GetWinningOptions();
             var payouts = new Dictionary<Guid, int>();
 
-            foreach (var vote in _votes)
+            foreach (var vote in Votes)
             {
                 bool isWinner = vote.OptionIndices.Any(idx => winningIndices.Contains(idx));
 
@@ -101,7 +95,7 @@ namespace PollSystem.Models.Entities
         public List<int> GetWinningOptions()
         {
             var voteCounts = new Dictionary<int, int>();
-            foreach (var v in _votes)
+            foreach (var v in Votes)
             {
                 foreach (var idx in v.OptionIndices)
                 {

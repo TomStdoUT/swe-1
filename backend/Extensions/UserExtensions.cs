@@ -6,7 +6,7 @@ namespace PollSystem.Extensions
     {
         public static bool IsFollowing(this User user, Guid targetUserId)
         {
-            return user.FollowingUserIds.Contains(targetUserId);
+            return user.Following.Any(follow => follow.FollowedId == targetUserId);
         }
     }
 }

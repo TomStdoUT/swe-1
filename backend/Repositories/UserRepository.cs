@@ -1,72 +1,41 @@
-using System.Collections.Concurrent;
-using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using PollSystem.Data;
 using PollSystem.Models.Entities;
 using PollSystem.Repositories.Interfaces;
 
 namespace PollSystem.Repositories
 {
-    public class UserRepository : IUserRepository
+    public sealed class UserRepository : IUserRepository
     {
-        private readonly ConcurrentDictionary<string, User> _users = new(StringComparer.OrdinalIgnoreCase);
-        private readonly SemaphoreSlim _stateLock = new(1, 1);
-        private readonly string _stateFilePath;
+        private readonly AppDbContext _db;
 
-        public UserRepository(string stateFilePath)
+        public UserRepository(AppDbContext db)
         {
-            _stateFilePath = stateFilePath;
+            _db = db;
         }
 
-        public async Task LoadStateAsync()
-        {
-            if (!File.Exists(_stateFilePath)) return;
-
-            await _stateLock.WaitAsync();
-            try
-            {
-                await using var stream = new FileStream(_stateFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var loadedUsers = await JsonSerializer.DeserializeAsync<List<User>>(stream);
-                
-                if (loadedUsers is null) return;
-
-                _users.Clear();
-                foreach (var user in loadedUsers)
-                {
-                    _users.TryAdd(user.Username, user);
-                }
-            }
-            finally
-            {
-                _stateLock.Release();
-            }
-        }
-
-        public async Task SaveStateAsync()
-        {
-            await _stateLock.WaitAsync();
-            try
-            {
-                await using var stream = new FileStream(_stateFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                await JsonSerializer.SerializeAsync(stream, GetAll().ToList(), new JsonSerializerOptions { WriteIndented = true });
-            }
-            finally
-            {
-                _stateLock.Release();
-            }
-        }
-
-        public void Add(User user)
-        {
-            _users.TryAdd(user.Username, user);
-        }
+        public void Add(User user) => _db.Users.Add(user);
 
         public User? FindByUsername(string? username)
         {
-            if (string.IsNullOrWhiteSpace(username)) return null;
-            return _users.GetValueOrDefault(username.Trim());
+            if (string.IsNullOrWhiteSpace(username))
+                return null;
+
+            return QueryUsers().FirstOrDefault(user => user.Username == username.Trim());
         }
 
-        public User? FindById(Guid id) => _users.Values.FirstOrDefault(user => user.Id == id);
+        public User? FindById(Guid id) => QueryUsers().FirstOrDefault(user => user.Id == id);
 
-        public IEnumerable<User> GetAll() => _users.Values.OrderBy(user => user.Username);
+        public IEnumerable<User> GetAll() => QueryUsers()
+            .Include(user => user.Followers)
+            .OrderBy(user => user.Username)
+            .AsSplitQuery()
+            .ToList();
+
+        public Task SaveStateAsync() => _db.SaveChangesAsync();
+
+        private IQueryable<User> QueryUsers() => _db.Users
+            .Include(user => user.Following)
+            .Include(user => user.Cosmetics);
     }
 }
