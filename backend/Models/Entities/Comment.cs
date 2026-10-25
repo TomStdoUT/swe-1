@@ -1,8 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace PollSystem.Models.Entities
 {
     public class Comment
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        [JsonIgnore]
+        public Guid PollId { get; set; }
         public Guid AuthorId { get; set; }
         public string AuthorName { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;

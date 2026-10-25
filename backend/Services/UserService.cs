@@ -73,9 +73,9 @@ namespace PollSystem.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public UserProfileDto? GetUserProfile(string? username)
+        public UserProfileDto? GetUserProfile(Guid userId)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
             
             if (user == null) 
                 return null;
@@ -88,10 +88,10 @@ namespace PollSystem.Services
             return _userRepo.GetAll().Select(CreateProfileDto);
         }
 
-        public async Task FollowUserAsync(string? followerUsername, string followedUsername)
+        public async Task FollowUserAsync(Guid followerId, Guid followedId)
         {
-            var follower = _userRepo.FindByUsername(followerUsername);
-            var followed = _userRepo.FindByUsername(followedUsername);
+            var follower = _userRepo.FindById(followerId);
+            var followed = _userRepo.FindById(followedId);
 
             if (follower is null)
                 throw new UnauthorizedAccessException("Sign in to follow users.");
@@ -102,49 +102,62 @@ namespace PollSystem.Services
 
             if (!follower.IsFollowing(followed.Id))
             {
-                follower.FollowingUserIds.Add(followed.Id);
+                follower.Following.Add(new UserFollow
+                {
+                    FollowerId = follower.Id,
+                    Follower = follower,
+                    FollowedId = followed.Id,
+                    Followed = followed
+                });
                 await _userRepo.SaveStateAsync();
             }
         }
 
-        public async Task UnfollowUserAsync(string? followerUsername, string followedUsername)
+        public async Task UnfollowUserAsync(Guid followerId, Guid followedId)
         {
-            var follower = _userRepo.FindByUsername(followerUsername);
-            var followed = _userRepo.FindByUsername(followedUsername);
+            var follower = _userRepo.FindById(followerId);
+            var followed = _userRepo.FindById(followedId);
 
             if (follower is null)
                 throw new UnauthorizedAccessException("Sign in to follow users.");
             if (followed is null)
                 throw new KeyNotFoundException("User not found.");
 
-            if (follower.FollowingUserIds.Remove(followed.Id))
+            var follow = follower.Following.FirstOrDefault(link => link.FollowedId == followed.Id);
+            if (follow is not null)
+            {
+                follower.Following.Remove(follow);
                 await _userRepo.SaveStateAsync();
+            }
         }
 
         public async Task SaveStateAsync() => await _userRepo.SaveStateAsync();
 
-        public IEnumerable<UserProfileDto> GetFollowingProfiles(string? username)
+        public IEnumerable<UserProfileDto> GetFollowingProfiles(Guid userId)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
             if (user is null) return Enumerable.Empty<UserProfileDto>();
 
-            return user.FollowingUserIds
-                .Select(_userRepo.FindById)
+            return user.Following
+                .Select(follow => _userRepo.FindById(follow.FollowedId))
                 .Where(followed => followed is not null)
                 .Select(followed => CreateProfileDto(followed!));
         }
 
-        public IEnumerable<FollowingVoteDto> GetFollowingVotes(string? username)
+        public IEnumerable<FollowingVoteDto> GetFollowingVotes(Guid userId)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
             if (user is null) return Enumerable.Empty<FollowingVoteDto>();
 
-            var followedIds = user.FollowingUserIds.ToHashSet();
+            var followedIds = user.Following.Select(follow => follow.FollowedId).ToHashSet();
             var usersById = _userRepo.GetAll().ToDictionary(followed => followed.Id);
 
             return _pollRepo.GetAll()
                 .Where(poll => poll.IsResolved)
-                .SelectMany(poll => poll.Votes
+                .SelectMany(poll =>
+                {
+                    var options = poll.Options.OrderBy(option => option.Position).ToList();
+                    return poll.Votes
                     .Where(vote => followedIds.Contains(vote.UserId) && usersById.ContainsKey(vote.UserId))
                     .Select(vote => new FollowingVoteDto(
                         poll.Id,
@@ -152,12 +165,13 @@ namespace PollSystem.Services
                         poll.Category,
                         usersById[vote.UserId].Username,
                         vote.OptionIndices
-                            .Where(index => index >= 0 && index < poll.Options.Count)
-                            .Select(index => poll.Options[index].text)
+                            .Where(index => index >= 0 && index < options.Count)
+                            .Select(index => options[index].text)
                             .ToList(),
                         vote.OptionIndices.Any(poll.GetWinningOptions().Contains),
                         poll.ClosingTime
-                    )))
+                    ));
+                })
                 .OrderByDescending(vote => vote.PollClosedAt)
                 .Take(50);
         }
@@ -177,8 +191,8 @@ namespace PollSystem.Services
                 totalResolvedVotes,
                 accuracyRate,
                 _userRepo.GetAll().Count(follower => follower.IsFollowing(user.Id)),
-                user.FollowingUserIds.Count,
-                user.PurchasedCosmetics ?? new List<string>()
+                user.Following.Count,
+                user.Cosmetics.Select(cosmetic => cosmetic.Name).ToList()
             );
         }
 
@@ -216,9 +230,9 @@ namespace PollSystem.Services
             return (correctPredictions, totalResolvedVotes);
         }
 
-        public async Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(string? username, string item)
+        public async Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(Guid userId, string item)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
 
             if (user == null)
                 throw new UnauthorizedAccessException("User not found.");
@@ -233,18 +247,20 @@ namespace PollSystem.Services
             if (!storePrices.TryGetValue(item, out int cost))
                 throw new ArgumentException("Item does not exist.");
 
-            if (user.PurchasedCosmetics.Contains(item))
+            if (user.Cosmetics.Any(cosmetic => cosmetic.Name == item))
                 throw new InvalidOperationException("You already own this cosmetic!");
 
             if (user.PointsBalance < cost)
                 throw new InvalidOperationException($"Insufficient points balance (costs {cost} points).");
 
             user.PointsBalance -= cost;
-            user.PurchasedCosmetics.Add(item);
+            var cosmetic = new UserCosmetic { UserId = user.Id, Name = item };
+            user.Cosmetics.Add(cosmetic);
+            _userRepo.AddCosmetic(cosmetic);
 
             await _userRepo.SaveStateAsync();
 
-            return (user.PointsBalance, user.PurchasedCosmetics);
+            return (user.PointsBalance, user.Cosmetics.Select(cosmetic => cosmetic.Name).ToList());
         }
     }
 }

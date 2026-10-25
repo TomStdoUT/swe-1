@@ -13,10 +13,11 @@ namespace PollSystem.Services
             _notificationRepo = notificationRepo;
         }
 
-        public Notification CreateNotification(Guid targetUserId, string content)
+        public async Task<Notification> CreateNotificationAsync(Guid targetUserId, string content)
         {
             var notification = new Notification(targetUserId, content);
             _notificationRepo.Add(notification);
+            await _notificationRepo.SaveStateAsync();
             return notification;
         }
 

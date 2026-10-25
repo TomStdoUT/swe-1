@@ -8,13 +8,13 @@ namespace PollSystem.Services.Interfaces
         User? GetUser(string? username);
         Task<(User User, string Token)> RegisterAsync(string username, string password);
         Task<(User User, string Token)> LoginAsync(string username, string password);
-        UserProfileDto? GetUserProfile(string? username);
+        UserProfileDto? GetUserProfile(Guid userId);
         IEnumerable<UserProfileDto> GetAllUserProfiles();
-        Task FollowUserAsync(string? followerUsername, string followedUsername);
-        Task UnfollowUserAsync(string? followerUsername, string followedUsername);
+        Task FollowUserAsync(Guid followerId, Guid followedId);
+        Task UnfollowUserAsync(Guid followerId, Guid followedId);
         Task SaveStateAsync();
-        Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(string? username, string item);
-        IEnumerable<UserProfileDto> GetFollowingProfiles(string? username);
-        IEnumerable<FollowingVoteDto> GetFollowingVotes(string? username);
+        Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(Guid userId, string item);
+        IEnumerable<UserProfileDto> GetFollowingProfiles(Guid userId);
+        IEnumerable<FollowingVoteDto> GetFollowingVotes(Guid userId);
     }
 }

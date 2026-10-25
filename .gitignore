@@ -7,3 +7,6 @@ obj/
 poll_snapshot.json
 posts.json
 users.json
+*.db
+*.db-shm
+*.db-wal

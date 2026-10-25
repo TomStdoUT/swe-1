@@ -34,3 +34,16 @@ An interactive polling application where users create custom polls, stake points
 
 <b>3. Check repository status:</b>
 <pre>git status</pre>
+
+## Backend database
+
+The backend uses Entity Framework Core with SQLite. On startup, EF Core applies the checked-in migrations to `backend/swe-1.db`. If the legacy `backend/users.json` and `backend/poll_snapshot.json` files exist and the database is empty, the backend imports their records once. The JSON files are left untouched as a backup and are no longer used for storage.
+
+To run the backend from the repository root:
+
+<pre>dotnet run --project backend/swe-1.csproj</pre>
+
+The SQLite file is local and ignored by Git. Future schema changes should be added as EF Core migrations using the local tool manifest:
+
+<pre>dotnet tool restore
+dotnet tool run dotnet-ef -- migrations add MigrationName --project backend/swe-1.csproj --startup-project backend/swe-1.csproj --output-dir Data/Migrations</pre>

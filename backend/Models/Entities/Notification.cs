@@ -1,12 +1,5 @@
 namespace PollSystem.Models.Entities
 {
-    public enum NotificationType
-    {
-        General,
-        PollResult,
-        SystemAlert
-    }
-
     public class Notification
     {
         public Guid Id { get; init; } = Guid.NewGuid();

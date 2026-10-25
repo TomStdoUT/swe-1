@@ -31,7 +31,7 @@ namespace PollSystem.Controllers
             try
             {
                 var (user, token) = await _userService.RegisterAsync(dto.Username, dto.Password);
-                var profile = _userService.GetUserProfile(user.Username);
+                var profile = _userService.GetUserProfile(user.Id);
                 
                 return Ok(new { Profile = profile, Token = token });
             }
@@ -50,7 +50,7 @@ namespace PollSystem.Controllers
             try
             {
                 var (user, token) = await _userService.LoginAsync(dto.Username, dto.Password);
-                var profile = _userService.GetUserProfile(user.Username);
+                var profile = _userService.GetUserProfile(user.Id);
                 
                 return Ok(new { Profile = profile, Token = token });
             }
@@ -64,8 +64,10 @@ namespace PollSystem.Controllers
         [HttpGet("user")]
         public IActionResult GetUser()
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var profile = _userService.GetUserProfile(username);
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
+
+            var profile = _userService.GetUserProfile(userId);
             
             if (profile == null)
                 return Unauthorized();
@@ -79,10 +81,10 @@ namespace PollSystem.Controllers
             return Ok(_userService.GetAllUserProfiles());
         }
 
-        [HttpGet("users/{username}")]
-        public IActionResult GetProfile(string username)
+        [HttpGet("users/{id:guid}")]
+        public IActionResult GetProfile(Guid id)
         {
-            var profile = _userService.GetUserProfile(username);
+            var profile = _userService.GetUserProfile(id);
             
             if (profile == null)
                 return NotFound();
@@ -91,12 +93,15 @@ namespace PollSystem.Controllers
         }
 
         [Authorize]
-        [HttpPost("users/{username}/follow")]
-        public async Task<IActionResult> FollowUser(string username)
+        [HttpPost("users/{id:guid}/follow")]
+        public async Task<IActionResult> FollowUser(Guid id)
         {
+            if (!TryGetUserId(out var followerId))
+                return Unauthorized();
+
             try
             {
-                await _userService.FollowUserAsync(User.FindFirstValue(ClaimTypes.NameIdentifier), username);
+                await _userService.FollowUserAsync(followerId, id);
                 return NoContent();
             }
             catch (UnauthorizedAccessException)
@@ -114,12 +119,15 @@ namespace PollSystem.Controllers
         }
 
         [Authorize]
-        [HttpDelete("users/{username}/follow")]
-        public async Task<IActionResult> UnfollowUser(string username)
+        [HttpDelete("users/{id:guid}/follow")]
+        public async Task<IActionResult> UnfollowUser(Guid id)
         {
+            if (!TryGetUserId(out var followerId))
+                return Unauthorized();
+
             try
             {
-                await _userService.UnfollowUserAsync(User.FindFirstValue(ClaimTypes.NameIdentifier), username);
+                await _userService.UnfollowUserAsync(followerId, id);
                 return NoContent();
             }
             catch (UnauthorizedAccessException)
@@ -136,10 +144,12 @@ namespace PollSystem.Controllers
         [HttpPost("users/buy/{item}")]
         public async Task<IActionResult> BuyCosmetic(string item)
         {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
+
             try
             {
-                var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                var result = await _userService.BuyCosmeticAsync(username, item);
+                var result = await _userService.BuyCosmeticAsync(userId, item);
                 
                 return Ok(new { 
                     message = "Purchased successfully!", 
@@ -161,14 +171,23 @@ namespace PollSystem.Controllers
         [HttpGet("users/following")]
         public IActionResult GetFollowing()
         {
-            return Ok(_userService.GetFollowingProfiles(User.FindFirstValue(ClaimTypes.NameIdentifier)));
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
+
+            return Ok(_userService.GetFollowingProfiles(userId));
         }
 
         [Authorize]
         [HttpGet("users/following/votes")]
         public IActionResult GetFollowingVotes()
         {
-            return Ok(_userService.GetFollowingVotes(User.FindFirstValue(ClaimTypes.NameIdentifier)));
+            if (!TryGetUserId(out var userId))
+                return Unauthorized();
+
+            return Ok(_userService.GetFollowingVotes(userId));
         }
+
+        private bool TryGetUserId(out Guid userId) =>
+            Guid.TryParse(User.FindFirstValue("userId"), out userId);
     }
 }

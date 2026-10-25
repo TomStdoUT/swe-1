@@ -4,7 +4,7 @@ namespace PollSystem.Services.Interfaces
 {
     public interface INotificationService
     {
-        Notification CreateNotification(Guid targetUserId, string content);
+        Task<Notification> CreateNotificationAsync(Guid targetUserId, string content);
         IEnumerable<Notification> GetUserNotifications(Guid targetUserId);
     }
 }
