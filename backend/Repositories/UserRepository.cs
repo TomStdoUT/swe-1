@@ -16,6 +16,8 @@ namespace PollSystem.Repositories
 
         public void Add(User user) => _db.Users.Add(user);
 
+        public void AddCosmetic(UserCosmetic cosmetic) => _db.UserCosmetics.Add(cosmetic);
+
         public User? FindByUsername(string? username)
         {
             if (string.IsNullOrWhiteSpace(username))

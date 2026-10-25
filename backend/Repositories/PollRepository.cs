@@ -20,6 +20,10 @@ namespace PollSystem.Repositories
 
         public void Add(Poll poll) => _db.Polls.Add(poll);
 
+        public void AddVote(Vote vote) => _db.Votes.Add(vote);
+
+        public void AddComment(Comment comment) => _db.Comments.Add(comment);
+
         public void Remove(Poll poll) => _db.Polls.Remove(poll);
 
         public Task SaveStateAsync() => _db.SaveChangesAsync();

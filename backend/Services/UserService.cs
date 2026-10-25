@@ -254,7 +254,9 @@ namespace PollSystem.Services
                 throw new InvalidOperationException($"Insufficient points balance (costs {cost} points).");
 
             user.PointsBalance -= cost;
-            user.Cosmetics.Add(new UserCosmetic { UserId = user.Id, Name = item });
+            var cosmetic = new UserCosmetic { UserId = user.Id, Name = item };
+            user.Cosmetics.Add(cosmetic);
+            _userRepo.AddCosmetic(cosmetic);
 
             await _userRepo.SaveStateAsync();
 

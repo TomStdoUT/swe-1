@@ -85,6 +85,7 @@ namespace PollSystem.Services
             poll.CastVote(user, vote);
 
             var processedVote = poll.Votes.Last(v => v.UserId == user.Id);
+            _pollRepo.AddVote(processedVote);
 
             await _pollRepo.SaveStateAsync();
             await _userRepo.SaveStateAsync();
@@ -115,6 +116,7 @@ namespace PollSystem.Services
 
             var comment = new Comment(authorId, authorName, content);
             poll.Comments.Add(comment);
+            _pollRepo.AddComment(comment);
 
             await _pollRepo.SaveStateAsync();
             return comment;
