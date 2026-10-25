@@ -18,6 +18,11 @@ namespace PollSystem.Data
         public DbSet<Comment> Comments => Set<Comment>();
         public DbSet<Notification> Notifications => Set<Notification>();
 
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>(entity =>
