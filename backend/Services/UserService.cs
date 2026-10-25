@@ -73,9 +73,9 @@ namespace PollSystem.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public UserProfileDto? GetUserProfile(string? username)
+        public UserProfileDto? GetUserProfile(Guid userId)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
             
             if (user == null) 
                 return null;
@@ -88,10 +88,10 @@ namespace PollSystem.Services
             return _userRepo.GetAll().Select(CreateProfileDto);
         }
 
-        public async Task FollowUserAsync(string? followerUsername, string followedUsername)
+        public async Task FollowUserAsync(Guid followerId, Guid followedId)
         {
-            var follower = _userRepo.FindByUsername(followerUsername);
-            var followed = _userRepo.FindByUsername(followedUsername);
+            var follower = _userRepo.FindById(followerId);
+            var followed = _userRepo.FindById(followedId);
 
             if (follower is null)
                 throw new UnauthorizedAccessException("Sign in to follow users.");
@@ -107,10 +107,10 @@ namespace PollSystem.Services
             }
         }
 
-        public async Task UnfollowUserAsync(string? followerUsername, string followedUsername)
+        public async Task UnfollowUserAsync(Guid followerId, Guid followedId)
         {
-            var follower = _userRepo.FindByUsername(followerUsername);
-            var followed = _userRepo.FindByUsername(followedUsername);
+            var follower = _userRepo.FindById(followerId);
+            var followed = _userRepo.FindById(followedId);
 
             if (follower is null)
                 throw new UnauthorizedAccessException("Sign in to follow users.");
@@ -123,9 +123,9 @@ namespace PollSystem.Services
 
         public async Task SaveStateAsync() => await _userRepo.SaveStateAsync();
 
-        public IEnumerable<UserProfileDto> GetFollowingProfiles(string? username)
+        public IEnumerable<UserProfileDto> GetFollowingProfiles(Guid userId)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
             if (user is null) return Enumerable.Empty<UserProfileDto>();
 
             return user.FollowingUserIds
@@ -134,9 +134,9 @@ namespace PollSystem.Services
                 .Select(followed => CreateProfileDto(followed!));
         }
 
-        public IEnumerable<FollowingVoteDto> GetFollowingVotes(string? username)
+        public IEnumerable<FollowingVoteDto> GetFollowingVotes(Guid userId)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
             if (user is null) return Enumerable.Empty<FollowingVoteDto>();
 
             var followedIds = user.FollowingUserIds.ToHashSet();
@@ -216,9 +216,9 @@ namespace PollSystem.Services
             return (correctPredictions, totalResolvedVotes);
         }
 
-        public async Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(string? username, string item)
+        public async Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(Guid userId, string item)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = _userRepo.FindById(userId);
 
             if (user == null)
                 throw new UnauthorizedAccessException("User not found.");

@@ -54,7 +54,7 @@ export function PublicProfiles({ onBack, currentUsername, onPurchaseSuccess }) {
     setUpdatingUser(profile.username);
 
     try {
-      const response = await fetch(`/api/users/${encodeURIComponent(profile.username)}/follow`, {
+      const response = await fetch(`/api/users/${profile.id}/follow`, {
         method: shouldFollow ? 'POST' : 'DELETE',
         headers: { Authorization: `Bearer ${sessionStorage.getItem('poll-token')}` },
       });
