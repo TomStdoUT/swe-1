@@ -251,8 +251,7 @@ namespace PollSystem.Services
                 throw new InvalidOperationException("You already own this cosmetic!");
 
             if (user.PointsBalance < cost)
-                throw new InvalidOperationException($"Insufficient points balance (costs {cost} points).");
-
+                throw new PollSystem.Models.Exceptions.PollDomainException($"Insufficient points balance (costs {cost} points).");
             user.PointsBalance -= cost;
             var cosmetic = new UserCosmetic { UserId = user.Id, Name = item };
             user.Cosmetics.Add(cosmetic);
