@@ -161,6 +161,10 @@ namespace PollSystem.Controllers
             {
                 return Unauthorized(new { error = ex.Message });
             }
+            catch (PollSystem.Models.Exceptions.PollDomainException ex)
+            {
+                return BadRequest(new { error = $"[Domain Error]: {ex.Message}" });
+            }
             catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)
             {
                 return BadRequest(new { error = ex.Message });
