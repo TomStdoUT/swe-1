@@ -29,7 +29,7 @@ namespace PollSystem.Controllers
             {
                 var (user, token) = await _userService.RegisterAsync(dto.Username, dto.Password);
                 var profile = _userService.GetUserProfile(user.Id);
-                
+
                 return Ok(new { Profile = profile, Token = token });
             }
             catch (InvalidOperationException ex)
@@ -48,7 +48,7 @@ namespace PollSystem.Controllers
             {
                 var (user, token) = await _userService.LoginAsync(dto.Username, dto.Password);
                 var profile = _userService.GetUserProfile(user.Id);
-                
+
                 return Ok(new { Profile = profile, Token = token });
             }
             catch (UnauthorizedAccessException ex)
@@ -65,10 +65,10 @@ namespace PollSystem.Controllers
                 return Unauthorized();
 
             var profile = _userService.GetUserProfile(userId);
-            
+
             if (profile == null)
                 return Unauthorized();
-                
+
             return Ok(profile);
         }
 
@@ -82,10 +82,10 @@ namespace PollSystem.Controllers
         public IActionResult GetProfile(Guid id)
         {
             var profile = _userService.GetUserProfile(id);
-            
+
             if (profile == null)
                 return NotFound();
-                
+
             return Ok(profile);
         }
 
@@ -147,11 +147,12 @@ namespace PollSystem.Controllers
             try
             {
                 var result = await _userService.BuyCosmeticAsync(userId, item);
-                
-                return Ok(new { 
-                    message = "Purchased successfully!", 
+
+                return Ok(new
+                {
+                    message = "Purchased successfully!",
                     remainingPoints = result.RemainingPoints,
-                    purchasedCosmetics = result.Cosmetics 
+                    purchasedCosmetics = result.Cosmetics
                 });
             }
             catch (UnauthorizedAccessException ex)
@@ -185,6 +186,6 @@ namespace PollSystem.Controllers
         }
 
         private bool TryGetUserId(out Guid userId) =>
-            Guid.TryParse(User.FindFirstValue("userId"), out userId);
+            Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
     }
 }

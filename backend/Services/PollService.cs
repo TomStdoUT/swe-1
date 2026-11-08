@@ -72,12 +72,15 @@ namespace PollSystem.Services
             return poll;
         }
 
-        public async Task<(int remainingPoints, bool isEarlyBird)> CastVoteAsync(Guid pollId, User user, VoteDto dto)
+        public async Task<(int remainingPoints, bool isEarlyBird)> CastVoteAsync(Guid pollId, Guid userId, VoteDto dto)
         {
             var poll = _pollRepo.GetById(pollId);
-
             if (poll == null)
                 throw new KeyNotFoundException("Poll not found.");
+
+            var user = _userRepo.FindById(userId);
+            if (user == null)
+                throw new UnauthorizedAccessException("User not found.");
 
             var vote = new Vote(user.Id, dto.OptionIndices, dto.BettedPoints);
 

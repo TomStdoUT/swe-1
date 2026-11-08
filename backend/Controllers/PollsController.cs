@@ -23,9 +23,8 @@ namespace PollSystem.Controllers
         [HttpGet]
         public IActionResult GetAllPolls()
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var username = User.FindFirstValue(ClaimTypes.Name);
             var feed = _pollService.GetFeedForUser(username);
-            
             return Ok(feed);
         }
 
@@ -33,16 +32,14 @@ namespace PollSystem.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePoll([FromBody] PollCreateDto dto)
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = _userService.GetUser(username);
-
-            if (user == null)
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
                 return Unauthorized();
 
             try
             {
-                await _pollService.CreatePollAsync(user.Id, dto);
-                return Ok(new { message = "Apklausa sukurta sėkmingai!", remainingPoints = user.PointsBalance });
+                await _pollService.CreatePollAsync(userId, dto);
+                var userProfile = _userService.GetUserProfile(userId);
+                return Ok(new { message = "Apklausa sukurta sėkmingai!", remainingPoints = userProfile?.PointsBalance ?? 0 });
             }
             catch (Exception ex)
             {
@@ -54,15 +51,12 @@ namespace PollSystem.Controllers
         [HttpPost("{id}/vote")]
         public async Task<IActionResult> Vote(Guid id, [FromBody] VoteDto dto)
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = _userService.GetUser(username);
-
-            if (user == null)
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
                 return Unauthorized();
 
             try
             {
-                var (remainingPoints, isEarlyBird) = await _pollService.CastVoteAsync(id, user, dto);
+                var (remainingPoints, isEarlyBird) = await _pollService.CastVoteAsync(id, userId, dto);
                 return Ok(new { message = "Vote accepted!", remainingPoints, isEarlyBird });
             }
             catch (Exception ex)
@@ -75,15 +69,12 @@ namespace PollSystem.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePoll(Guid id)
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = _userService.GetUser(username);
-
-            if (user == null)
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
                 return Unauthorized();
 
             try
             {
-                await _pollService.DeletePollAsync(id, user.Id);
+                await _pollService.DeletePollAsync(id, userId);
                 return Ok(new { message = "Apklausa sėkmingai ištrinta." });
             }
             catch (UnauthorizedAccessException)
@@ -100,23 +91,17 @@ namespace PollSystem.Controllers
         [HttpPost("{id}/comments")]
         public async Task<IActionResult> AddComment(Guid id, [FromBody] CommentCreateDto dto)
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = _userService.GetUser(username);
-
-            if (user == null)
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
                 return Unauthorized();
+
+            var username = User.FindFirstValue(ClaimTypes.Name);
 
             if (string.IsNullOrWhiteSpace(dto.Content))
                 return BadRequest(new { error = "Comment content cannot be empty." });
 
             try
             {
-                var comment = await _pollService.AddCommentAsync(
-                    id,
-                    user.Id,
-                    user.Username,
-                    dto.Content.Trim()
-                );
+                var comment = await _pollService.AddCommentAsync(id, userId, username ?? "Unknown", dto.Content.Trim());
                 return Ok(comment);
             }
             catch (KeyNotFoundException ex)

@@ -61,8 +61,8 @@ namespace PollSystem.Services
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Username),
-                new Claim(ClaimTypes.NameIdentifier, user.Username),
-                new Claim("userId", user.Id.ToString())
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
             };
 
             var token = new JwtSecurityToken(
@@ -76,10 +76,10 @@ namespace PollSystem.Services
         public UserProfileDto? GetUserProfile(Guid userId)
         {
             var user = _userRepo.FindById(userId);
-            
-            if (user == null) 
+
+            if (user == null)
                 return null;
-                
+
             return CreateProfileDto(user);
         }
 
