@@ -18,33 +18,32 @@ namespace PollSystem.Services
             _notificationRepo = notificationRepo;
         }
 
-        public IEnumerable<object> GetFeedForUser(string? username)
+        public IEnumerable<PollFeedDto> GetFeedForUser(string? username)
         {
             var user = _userRepo.FindByUsername(username);
             var activeUserId = user?.Id ?? GenerateDeterministicId(username);
 
             return _pollRepo.GetAll()
             .OrderByDescending(p => p.ClosingTime)
-            .Select(p => new
-                {
-                    p.Id,
-                    p.CreatorId,
-                    p.Question,
-                    p.Category,
-                    Tags = p.Tags.OrderBy(tag => tag.Value).Select(tag => tag.Value).ToList(),
-                    Options = p.Options.OrderBy(option => option.Position)
-                        .Select(option => new { option.text })
-                        .ToList(),
-                    p.ClosingTime,
-                    p.CreatedAt,
-                    p.AllowMultiple,
-                    p.Comments,
-                    p.IsResolved,
-                    p.IsDailyChallenge,
-                    WinningOptions = p.IsResolved ? p.GetWinningOptions() : new List<int>(),
-                    Votes = p.Votes.Where(v => v.UserId == activeUserId).ToList(),
-                    TotalVotesCount = p.Votes.Count()
-                });
+            .Select(p => new PollFeedDto(
+                p.Id,
+                p.CreatorId,
+                p.Question,
+                p.Category,
+                p.Tags.OrderBy(tag => tag.Value).Select(tag => tag.Value).ToList(),
+                p.Options.OrderBy(option => option.Position).Select(option => option.text).ToList(),
+                p.ClosingTime,
+                p.CreatedAt,
+                p.AllowMultiple,
+                p.IsDailyChallenge,
+                p.IsResolved,
+                p.Comments.Select(c => new CommentDto(c.AuthorName, c.Content, c.CreatedAt)).ToList(),
+                p.IsResolved ? p.GetWinningOptions() : new List<int>(),
+                p.Votes.Where(v => v.UserId == activeUserId)
+                       .Select(v => new UserVoteDto(v.OptionIndices, v.BettedPoints, v.IsEarlyBird))
+                       .ToList(),
+                p.Votes.Count()
+            ));
         }
 
         public async Task<Poll> CreatePollAsync(Guid creatorId, PollCreateDto dto)
@@ -121,7 +120,7 @@ namespace PollSystem.Services
             await _pollRepo.SaveStateAsync();
             return comment;
         }
-    
+
         public async Task ResolveClosedPollsAsync()
         {
             bool anyResolved = false;
@@ -130,7 +129,7 @@ namespace PollSystem.Services
             foreach (var poll in _pollRepo.GetAll().Where(p => p.IsClosed() && !p.IsResolved))
             {
                 var payouts = poll.Resolve();
-                
+
                 int totalVotes = poll.Votes.Count();
                 int totalComments = poll.Comments?.Count ?? 0;
 
@@ -143,7 +142,7 @@ namespace PollSystem.Services
                 }
 
                 var userVotes = poll.Votes.GroupBy(v => v.UserId);
-                
+
                 foreach (var userVoteGroup in userVotes)
                 {
                     var userId = userVoteGroup.Key;
