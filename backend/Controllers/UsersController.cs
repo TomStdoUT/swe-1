@@ -22,11 +22,8 @@ namespace PollSystem.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Username) || dto.Username.Trim().Length > 40)
-                return BadRequest(new { error = "Enter a valid username (1-40 characters)." });
-
-            if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
-                return BadRequest(new { error = "Password must be at least 6 characters long." });
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
             try
             {
@@ -44,8 +41,8 @@ namespace PollSystem.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
-                return BadRequest(new { error = "Username and password are required." });
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
             try
             {
