@@ -126,7 +126,7 @@ namespace PollSystem.Services
             bool anyResolved = false;
             var allUsers = _userRepo.GetAll().ToDictionary(u => u.Id);
 
-            foreach (var poll in _pollRepo.GetAll().Where(p => p.IsClosed() && !p.IsResolved))
+            foreach (var poll in _pollRepo.GetUnresolvedClosedPolls())
             {
                 var payouts = poll.Resolve();
 

@@ -16,6 +16,14 @@ namespace PollSystem.Repositories
 
         public IEnumerable<Poll> GetAll() => QueryPolls().ToList();
 
+        public IEnumerable<Poll> GetUnresolvedClosedPolls()
+        {
+            return _db.Polls
+                .Include(p => p.Votes).ThenInclude(v => v.Selections)
+                .Where(p => p.ClosingTime <= DateTime.UtcNow && !p.IsResolved)
+                .ToList();
+        }
+
         public Poll? GetById(Guid id) => QueryPolls().FirstOrDefault(poll => poll.Id == id);
 
         public void Add(Poll poll) => _db.Polls.Add(poll);
