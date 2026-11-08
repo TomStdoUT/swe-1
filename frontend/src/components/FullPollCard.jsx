@@ -144,7 +144,7 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
                 onChange={() => toggleOption(index)} 
                 disabled={isLocked}
               />
-              {opt.text}
+              {opt.text || opt}
             </label>
           );
         })}
