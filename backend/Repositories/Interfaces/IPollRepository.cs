@@ -11,6 +11,5 @@ namespace PollSystem.Repositories.Interfaces
         void AddVote(Vote vote);
         void AddComment(Comment comment);
         void Remove(Poll poll);
-        Task SaveStateAsync();
     }
 }

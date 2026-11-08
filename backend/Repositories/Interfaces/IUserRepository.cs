@@ -4,7 +4,6 @@ namespace PollSystem.Repositories.Interfaces
 {
     public interface IUserRepository
     {
-        Task SaveStateAsync();
         void Add(User user);
         void AddCosmetic(UserCosmetic cosmetic);
         User? FindByUsername(string? username);

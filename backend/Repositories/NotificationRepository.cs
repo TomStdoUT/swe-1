@@ -18,8 +18,6 @@ namespace PollSystem.Repositories
             _db.Notifications.Add(notification);
         }
 
-        public Task SaveStateAsync() => _db.SaveChangesAsync();
-
         public IEnumerable<Notification> GetByUserId(Guid targetUserId)
         {
             return _db.Notifications

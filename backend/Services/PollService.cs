@@ -10,12 +10,14 @@ namespace PollSystem.Services
         private readonly IPollRepository _pollRepo;
         private readonly IUserRepository _userRepo;
         private readonly INotificationRepository _notificationRepo;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public PollService(IPollRepository pollRepo, IUserRepository userRepo, INotificationRepository notificationRepo)
+        public PollService(IPollRepository pollRepo, IUserRepository userRepo, INotificationRepository notificationRepo, IUnitOfWork unitOfWork)
         {
             _pollRepo = pollRepo;
             _userRepo = userRepo;
             _notificationRepo = notificationRepo;
+            _unitOfWork = unitOfWork;
         }
 
         public IEnumerable<PollFeedDto> GetFeedForUser(string? username)
@@ -68,7 +70,7 @@ namespace PollSystem.Services
             };
 
             _pollRepo.Add(poll);
-            await _pollRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
             return poll;
         }
 
@@ -89,8 +91,7 @@ namespace PollSystem.Services
             var processedVote = poll.Votes.Last(v => v.UserId == user.Id);
             _pollRepo.AddVote(processedVote);
 
-            await _pollRepo.SaveStateAsync();
-            await _userRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             return (user.PointsBalance, processedVote.IsEarlyBird);
         }
@@ -106,7 +107,7 @@ namespace PollSystem.Services
                 throw new UnauthorizedAccessException("Not poll owner.");
 
             _pollRepo.Remove(poll);
-            await _pollRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
         }
 
         public async Task<Comment> AddCommentAsync(Guid pollId, Guid authorId, string authorName, string content)
@@ -120,7 +121,7 @@ namespace PollSystem.Services
             poll.Comments.Add(comment);
             _pollRepo.AddComment(comment);
 
-            await _pollRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
             return comment;
         }
 
@@ -170,8 +171,7 @@ namespace PollSystem.Services
 
             if (anyResolved)
             {
-                await _pollRepo.SaveStateAsync();
-                await _userRepo.SaveStateAsync();
+                await _unitOfWork.SaveChangesAsync();
             }
         }
 
@@ -213,7 +213,7 @@ namespace PollSystem.Services
             };
 
             _pollRepo.Add(poll);
-            await _pollRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
         }
 
         private Guid GenerateDeterministicId(string? username)

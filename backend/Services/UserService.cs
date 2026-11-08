@@ -16,12 +16,14 @@ namespace PollSystem.Services
         private readonly IUserRepository _userRepo;
         private readonly IPollRepository _pollRepo;
         private readonly IConfiguration _config;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public UserService(IUserRepository userRepo, IPollRepository pollRepo, IConfiguration config)
+        public UserService(IUserRepository userRepo, IPollRepository pollRepo, IConfiguration config, IUnitOfWork unitOfWork)
         {
             _userRepo = userRepo;
             _pollRepo = pollRepo;
             _config = config;
+            _unitOfWork = unitOfWork;
         }
 
         public User? GetUser(string? username) => _userRepo.FindByUsername(username);
@@ -35,7 +37,7 @@ namespace PollSystem.Services
             var user = new User(username, passwordHash);
 
             _userRepo.Add(user);
-            await _userRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             var token = GenerateJwtToken(user);
             return (user, token);
@@ -76,10 +78,10 @@ namespace PollSystem.Services
         public UserProfileDto? GetUserProfile(Guid userId)
         {
             var user = _userRepo.FindById(userId);
-
-            if (user == null)
+            
+            if (user == null) 
                 return null;
-
+                
             return CreateProfileDto(user);
         }
 
@@ -109,7 +111,7 @@ namespace PollSystem.Services
                     FollowedId = followed.Id,
                     Followed = followed
                 });
-                await _userRepo.SaveStateAsync();
+                await _unitOfWork.SaveChangesAsync();
             }
         }
 
@@ -127,11 +129,11 @@ namespace PollSystem.Services
             if (follow is not null)
             {
                 follower.Following.Remove(follow);
-                await _userRepo.SaveStateAsync();
+                await _unitOfWork.SaveChangesAsync();
             }
         }
 
-        public async Task SaveStateAsync() => await _userRepo.SaveStateAsync();
+        public async Task SaveStateAsync() => await _unitOfWork.SaveChangesAsync();
 
         public IEnumerable<UserProfileDto> GetFollowingProfiles(Guid userId)
         {
@@ -258,7 +260,7 @@ namespace PollSystem.Services
             user.Cosmetics.Add(cosmetic);
             _userRepo.AddCosmetic(cosmetic);
 
-            await _userRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
 
             return (user.PointsBalance, user.Cosmetics.Select(cosmetic => cosmetic.Name).ToList());
         }

@@ -34,8 +34,6 @@ namespace PollSystem.Repositories
             .AsSplitQuery()
             .ToList();
 
-        public Task SaveStateAsync() => _db.SaveChangesAsync();
-
         private IQueryable<User> QueryUsers() => _db.Users
             .Include(user => user.Following)
             .Include(user => user.Cosmetics);

@@ -34,8 +34,6 @@ namespace PollSystem.Repositories
 
         public void Remove(Poll poll) => _db.Polls.Remove(poll);
 
-        public Task SaveStateAsync() => _db.SaveChangesAsync();
-
         private IQueryable<Poll> QueryPolls() => _db.Polls
             .Include(poll => poll.Options)
             .Include(poll => poll.Tags)
