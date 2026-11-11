@@ -15,6 +15,12 @@ namespace PollSystem.Repositories
         }
 
         public async Task<IEnumerable<Poll>> GetAllAsync() => await QueryPolls().ToListAsync();
+        public async Task<IEnumerable<Poll>> GetClosedPollsAsync()
+        {
+            return await QueryPolls()
+                .Where(p => p.ClosingTime <= DateTime.UtcNow)
+                .ToListAsync();
+        }
 
         public IEnumerable<Poll> GetUnresolvedClosedPolls()
         {
