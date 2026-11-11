@@ -7,17 +7,19 @@ namespace PollSystem.Services
     public class NotificationService : INotificationService
     {
         private readonly INotificationRepository _notificationRepo;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public NotificationService(INotificationRepository notificationRepo)
+        public NotificationService(INotificationRepository notificationRepo, IUnitOfWork unitOfWork)
         {
             _notificationRepo = notificationRepo;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<Notification> CreateNotificationAsync(Guid targetUserId, string content)
         {
             var notification = new Notification(targetUserId, content);
             _notificationRepo.Add(notification);
-            await _notificationRepo.SaveStateAsync();
+            await _unitOfWork.SaveChangesAsync();
             return notification;
         }
 

@@ -16,6 +16,14 @@ namespace PollSystem.Repositories
 
         public IEnumerable<Poll> GetAll() => QueryPolls().ToList();
 
+        public IEnumerable<Poll> GetUnresolvedClosedPolls()
+        {
+            return _db.Polls
+                .Include(p => p.Votes).ThenInclude(v => v.Selections)
+                .Where(p => p.ClosingTime <= DateTime.UtcNow && !p.IsResolved)
+                .ToList();
+        }
+
         public Poll? GetById(Guid id) => QueryPolls().FirstOrDefault(poll => poll.Id == id);
 
         public void Add(Poll poll) => _db.Polls.Add(poll);
@@ -25,8 +33,6 @@ namespace PollSystem.Repositories
         public void AddComment(Comment comment) => _db.Comments.Add(comment);
 
         public void Remove(Poll poll) => _db.Polls.Remove(poll);
-
-        public Task SaveStateAsync() => _db.SaveChangesAsync();
 
         private IQueryable<Poll> QueryPolls() => _db.Polls
             .Include(poll => poll.Options)

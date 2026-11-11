@@ -10,25 +10,20 @@ namespace PollSystem.Controllers
     public class NotificationsController : ControllerBase
     {
         private readonly INotificationService _notificationService;
-        private readonly IUserService _userService;
 
-        public NotificationsController(INotificationService notificationService, IUserService userService)
+        public NotificationsController(INotificationService notificationService)
         {
             _notificationService = notificationService;
-            _userService = userService;
         }
 
         [Authorize]
         [HttpGet]
         public IActionResult GetNotifications()
         {
-            var username = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var user = _userService.GetUser(username);
-
-            if (user == null)
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
                 return Unauthorized();
 
-            var notifications = _notificationService.GetUserNotifications(user.Id);
+            var notifications = _notificationService.GetUserNotifications(userId);
             return Ok(notifications);
         }
     }
