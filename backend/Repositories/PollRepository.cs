@@ -14,7 +14,7 @@ namespace PollSystem.Repositories
             _db = db;
         }
 
-        public IEnumerable<Poll> GetAll() => QueryPolls().ToList();
+        public async Task<IEnumerable<Poll>> GetAllAsync() => await QueryPolls().ToListAsync();
 
         public IEnumerable<Poll> GetUnresolvedClosedPolls()
         {
@@ -24,7 +24,7 @@ namespace PollSystem.Repositories
                 .ToList();
         }
 
-        public Poll? GetById(Guid id) => QueryPolls().FirstOrDefault(poll => poll.Id == id);
+        public async Task<Poll?> GetByIdAsync(Guid id) => await QueryPolls().FirstOrDefaultAsync(poll => poll.Id == id);
 
         public void Add(Poll poll) => _db.Polls.Add(poll);
 

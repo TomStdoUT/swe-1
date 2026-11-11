@@ -28,7 +28,7 @@ namespace PollSystem.Controllers
             try
             {
                 var (user, token) = await _userService.RegisterAsync(dto.Username, dto.Password);
-                var profile = _userService.GetUserProfile(user.Id);
+                var profile = await _userService.GetUserProfileAsync(user.Id);
 
                 return Ok(new { Profile = profile, Token = token });
             }
@@ -47,7 +47,7 @@ namespace PollSystem.Controllers
             try
             {
                 var (user, token) = await _userService.LoginAsync(dto.Username, dto.Password);
-                var profile = _userService.GetUserProfile(user.Id);
+                var profile = await _userService.GetUserProfileAsync(user.Id);
 
                 return Ok(new { Profile = profile, Token = token });
             }
@@ -59,12 +59,12 @@ namespace PollSystem.Controllers
 
         [Authorize]
         [HttpGet("user")]
-        public IActionResult GetUser()
+        public async Task<IActionResult> GetUser()
         {
             if (!TryGetUserId(out var userId))
                 return Unauthorized();
 
-            var profile = _userService.GetUserProfile(userId);
+            var profile = await _userService.GetUserProfileAsync(userId);
 
             if (profile == null)
                 return Unauthorized();
@@ -73,15 +73,16 @@ namespace PollSystem.Controllers
         }
 
         [HttpGet("users")]
-        public IActionResult GetProfiles()
+        public async Task<IActionResult> GetProfiles()
         {
-            return Ok(_userService.GetAllUserProfiles());
+            var profiles = await _userService.GetAllUserProfilesAsync();
+            return Ok(profiles);
         }
 
         [HttpGet("users/{id:guid}")]
-        public IActionResult GetProfile(Guid id)
+        public async Task<IActionResult> GetProfile(Guid id)
         {
-            var profile = _userService.GetUserProfile(id);
+            var profile = await _userService.GetUserProfileAsync(id);
 
             if (profile == null)
                 return NotFound();
@@ -148,15 +149,15 @@ namespace PollSystem.Controllers
             {
                 var result = await _userService.BuyCosmeticAsync(userId, item);
 
-                if (!result.IsSuccess)
-                    return BadRequest(new { error = result.Message });
-
-                return Ok(new
-                {
-                    message = "Purchased successfully!",
-                    remainingPoints = result.Data.RemainingPoints,
-                    purchasedCosmetics = result.Data.Cosmetics
-                });
+                return result.Map<IActionResult>(
+                    data => Ok(new
+                    {
+                        message = "Purchased successfully!",
+                        remainingPoints = data.RemainingPoints,
+                        purchasedCosmetics = data.Cosmetics
+                    }),
+                    error => BadRequest(new { error })
+                );
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -170,22 +171,24 @@ namespace PollSystem.Controllers
 
         [Authorize]
         [HttpGet("users/following")]
-        public IActionResult GetFollowing()
+        public async Task<IActionResult> GetFollowing()
         {
             if (!TryGetUserId(out var userId))
                 return Unauthorized();
 
-            return Ok(_userService.GetFollowingProfiles(userId));
+            var following = await _userService.GetFollowingProfilesAsync(userId);
+            return Ok(following);
         }
 
         [Authorize]
         [HttpGet("users/following/votes")]
-        public IActionResult GetFollowingVotes()
+        public async Task<IActionResult> GetFollowingVotes()
         {
             if (!TryGetUserId(out var userId))
                 return Unauthorized();
 
-            return Ok(_userService.GetFollowingVotes(userId));
+            var votes = await _userService.GetFollowingVotesAsync(userId);
+            return Ok(votes);
         }
 
         private bool TryGetUserId(out Guid userId) =>

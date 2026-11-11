@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 using PollSystem.Models.DTOs;
 using PollSystem.Models.Entities;
 using PollSystem.Repositories.Interfaces;
@@ -26,11 +27,12 @@ namespace PollSystem.Services
             _unitOfWork = unitOfWork;
         }
 
-        public User? GetUser(string? username) => _userRepo.FindByUsername(username);
+        public async Task<User?> GetUserAsync(string? username) => await _userRepo.FindByUsernameAsync(username);
 
         public async Task<(User User, string Token)> RegisterAsync(string username, string password)
         {
-            if (_userRepo.FindByUsername(username) != null)
+            var existingUser = await _userRepo.FindByUsernameAsync(username);
+            if (existingUser != null)
                 throw new InvalidOperationException("Username is already taken.");
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
@@ -45,7 +47,7 @@ namespace PollSystem.Services
 
         public async Task<(User User, string Token)> LoginAsync(string username, string password)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = await _userRepo.FindByUsernameAsync(username);
 
             if (user == null || string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 throw new UnauthorizedAccessException("Invalid username or password.");
@@ -75,25 +77,31 @@ namespace PollSystem.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public UserProfileDto? GetUserProfile(Guid userId)
+        public async Task<UserProfileDto?> GetUserProfileAsync(Guid userId)
         {
-            var user = _userRepo.FindById(userId);
+            var user = await _userRepo.FindByIdAsync(userId);
 
             if (user == null)
                 return null;
 
-            return CreateProfileDto(user);
+            return await CreateProfileDtoAsync(user);
         }
 
-        public IEnumerable<UserProfileDto> GetAllUserProfiles()
+        public async Task<IEnumerable<UserProfileDto>> GetAllUserProfilesAsync()
         {
-            return _userRepo.GetAll().Select(CreateProfileDto);
+            var users = await _userRepo.GetAllAsync();
+            var dtos = new List<UserProfileDto>();
+            foreach (var user in users)
+            {
+                dtos.Add(await CreateProfileDtoAsync(user));
+            }
+            return dtos;
         }
 
         public async Task FollowUserAsync(Guid followerId, Guid followedId)
         {
-            var follower = _userRepo.FindById(followerId);
-            var followed = _userRepo.FindById(followedId);
+            var follower = await _userRepo.FindByIdAsync(followerId);
+            var followed = await _userRepo.FindByIdAsync(followedId);
 
             if (follower is null)
                 throw new UnauthorizedAccessException("Sign in to follow users.");
@@ -117,8 +125,8 @@ namespace PollSystem.Services
 
         public async Task UnfollowUserAsync(Guid followerId, Guid followedId)
         {
-            var follower = _userRepo.FindById(followerId);
-            var followed = _userRepo.FindById(followedId);
+            var follower = await _userRepo.FindByIdAsync(followerId);
+            var followed = await _userRepo.FindByIdAsync(followedId);
 
             if (follower is null)
                 throw new UnauthorizedAccessException("Sign in to follow users.");
@@ -135,55 +143,70 @@ namespace PollSystem.Services
 
         public async Task SaveStateAsync() => await _unitOfWork.SaveChangesAsync();
 
-        public IEnumerable<UserProfileDto> GetFollowingProfiles(Guid userId)
+        public async Task<IEnumerable<UserProfileDto>> GetFollowingProfilesAsync(Guid userId)
         {
-            var user = _userRepo.FindById(userId);
+            var user = await _userRepo.FindByIdAsync(userId);
             if (user is null) return Enumerable.Empty<UserProfileDto>();
 
-            return user.Following
-                .Select(follow => _userRepo.FindById(follow.FollowedId))
-                .Where(followed => followed is not null)
-                .Select(followed => CreateProfileDto(followed!));
+            var profiles = new List<UserProfileDto>();
+            foreach (var follow in user.Following)
+            {
+                var followed = await _userRepo.FindByIdAsync(follow.FollowedId);
+                if (followed is not null)
+                {
+                    profiles.Add(await CreateProfileDtoAsync(followed));
+                }
+            }
+            return profiles;
         }
 
-        public IEnumerable<FollowingVoteDto> GetFollowingVotes(Guid userId)
+        public async Task<IEnumerable<FollowingVoteDto>> GetFollowingVotesAsync(Guid userId)
         {
-            var user = _userRepo.FindById(userId);
+            var user = await _userRepo.FindByIdAsync(userId);
             if (user is null) return Enumerable.Empty<FollowingVoteDto>();
 
             var followedIds = user.Following.Select(follow => follow.FollowedId).ToHashSet();
-            var usersById = _userRepo.GetAll().ToDictionary(followed => followed.Id);
+            var allUsers = await _userRepo.GetAllAsync();
+            var usersById = allUsers.ToDictionary(followed => followed.Id);
 
-            return _pollRepo.GetAll()
-                .Where(poll => poll.IsResolved)
-                .SelectMany(poll =>
+            var polls = await _pollRepo.GetAllAsync();
+            var result = new List<FollowingVoteDto>();
+
+            foreach (var poll in polls.Where(poll => poll.IsResolved))
+            {
+                var options = poll.Options.OrderBy(option => option.Position).ToList();
+                foreach (var vote in poll.Votes)
                 {
-                    var options = poll.Options.OrderBy(option => option.Position).ToList();
-                    return poll.Votes
-                    .Where(vote => followedIds.Contains(vote.UserId) && usersById.ContainsKey(vote.UserId))
-                    .Select(vote => new FollowingVoteDto(
-                        poll.Id,
-                        poll.Question,
-                        poll.Category,
-                        usersById[vote.UserId].Username,
-                        vote.OptionIndices
-                            .Where(index => index >= 0 && index < options.Count)
-                            .Select(index => options[index].text)
-                            .ToList(),
-                        vote.OptionIndices.Any(poll.GetWinningOptions().Contains),
-                        poll.ClosingTime
-                    ));
-                })
-                .OrderByDescending(vote => vote.PollClosedAt)
-                .Take(50);
+                    if (followedIds.Contains(vote.UserId) && usersById.ContainsKey(vote.UserId))
+                    {
+                        result.Add(new FollowingVoteDto(
+                            poll.Id,
+                            poll.Question,
+                            poll.Category,
+                            usersById[vote.UserId].Username,
+                            vote.OptionIndices
+                                .Where(index => index >= 0 && index < options.Count)
+                                .Select(index => options[index].text)
+                                .ToList(),
+                            vote.OptionIndices.Any(poll.GetWinningOptions().Contains),
+                            poll.ClosingTime
+                        ));
+                    }
+                }
+            }
+
+            return result.OrderByDescending(vote => vote.PollClosedAt).Take(50);
         }
 
-        private UserProfileDto CreateProfileDto(User user)
+        private async Task<UserProfileDto> CreateProfileDtoAsync(User user)
         {
-            var (correctPredictions, totalResolvedVotes) = CalculateAccuracyStats(user.Id);
+            var (correctPredictions, totalResolvedVotes) = await CalculateAccuracyStatsAsync(user.Id);
             var accuracyRate = totalResolvedVotes == 0
                 ? (double?)null
                 : Math.Round(correctPredictions * 100.0 / totalResolvedVotes, 1);
+
+            var allUsers = await _userRepo.GetAllAsync();
+            int followerCount = allUsers.Count(follower => follower.IsFollowing(user.Id));
 
             return new UserProfileDto(
                 user.Id,
@@ -192,18 +215,20 @@ namespace PollSystem.Services
                 correctPredictions,
                 totalResolvedVotes,
                 accuracyRate,
-                _userRepo.GetAll().Count(follower => follower.IsFollowing(user.Id)),
+                followerCount,
                 user.Following.Count,
                 user.Cosmetics.Select(cosmetic => cosmetic.Name).ToList()
             );
         }
 
-        private (int CorrectPredictions, int TotalResolvedVotes) CalculateAccuracyStats(Guid userId)
+        private async Task<(int CorrectPredictions, int TotalResolvedVotes)> CalculateAccuracyStatsAsync(Guid userId)
         {
             var correctPredictions = 0;
             var totalResolvedVotes = 0;
 
-            foreach (var poll in _pollRepo.GetAll().Where(p => p.IsClosed()))
+            var closedPolls = await _pollRepo.GetClosedPollsAsync();
+
+            foreach (var poll in closedPolls)
             {
                 var votes = poll.Votes.ToList();
                 var voteCounts = votes
@@ -234,7 +259,7 @@ namespace PollSystem.Services
 
         public async Task<PollSystem.Models.Common.OperationResult<(int RemainingPoints, List<string> Cosmetics)>> BuyCosmeticAsync(Guid userId, string item)
         {
-            var user = _userRepo.FindById(userId);
+            var user = await _userRepo.FindByIdAsync(userId);
 
             if (user == null)
                 return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure("User not found.");
