@@ -13,8 +13,7 @@ namespace PollSystem.Services.Interfaces
         Task FollowUserAsync(Guid followerId, Guid followedId);
         Task UnfollowUserAsync(Guid followerId, Guid followedId);
         Task SaveStateAsync();
-        Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(Guid userId, string item);
-        IEnumerable<UserProfileDto> GetFollowingProfiles(Guid userId);
+        Task<PollSystem.Models.Common.OperationResult<(int RemainingPoints, List<string> Cosmetics)>> BuyCosmeticAsync(Guid userId, string item);        IEnumerable<UserProfileDto> GetFollowingProfiles(Guid userId);
         IEnumerable<FollowingVoteDto> GetFollowingVotes(Guid userId);
     }
 }

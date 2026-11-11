@@ -232,12 +232,12 @@ namespace PollSystem.Services
             return (correctPredictions, totalResolvedVotes);
         }
 
-        public async Task<(int RemainingPoints, List<string> Cosmetics)> BuyCosmeticAsync(Guid userId, string item)
+        public async Task<PollSystem.Models.Common.OperationResult<(int RemainingPoints, List<string> Cosmetics)>> BuyCosmeticAsync(Guid userId, string item)
         {
             var user = _userRepo.FindById(userId);
 
             if (user == null)
-                throw new UnauthorizedAccessException("User not found.");
+                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure("User not found.");
 
             var storePrices = new Dictionary<string, int>
             {
@@ -247,13 +247,14 @@ namespace PollSystem.Services
             };
 
             if (!storePrices.TryGetValue(item, out int cost))
-                throw new ArgumentException("Item does not exist.");
+                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure("Item does not exist.");
 
             if (user.Cosmetics.Any(cosmetic => cosmetic.Name == item))
-                throw new InvalidOperationException("You already own this cosmetic!");
+                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure("You already own this cosmetic!");
 
             if (user.PointsBalance < cost)
-                throw new PollSystem.Models.Exceptions.PollDomainException($"Insufficient points balance (costs {cost} points).");
+                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure($"Insufficient points balance (costs {cost} points).");
+
             user.PointsBalance -= cost;
             var cosmetic = new UserCosmetic { UserId = user.Id, Name = item };
             user.Cosmetics.Add(cosmetic);
@@ -261,7 +262,11 @@ namespace PollSystem.Services
 
             await _unitOfWork.SaveChangesAsync();
 
-            return (user.PointsBalance, user.Cosmetics.Select(cosmetic => cosmetic.Name).ToList());
+            var result = PollSystem.Models.Common.OperationResult<(int, List<string>)>.Success(
+                (user.PointsBalance, user.Cosmetics.Select(c => c.Name).ToList())
+            );
+
+            return result;
         }
     }
 }

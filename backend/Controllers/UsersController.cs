@@ -148,20 +148,19 @@ namespace PollSystem.Controllers
             {
                 var result = await _userService.BuyCosmeticAsync(userId, item);
 
+                if (!result.IsSuccess)
+                    return BadRequest(new { error = result.Message });
+
                 return Ok(new
                 {
                     message = "Purchased successfully!",
-                    remainingPoints = result.RemainingPoints,
-                    purchasedCosmetics = result.Cosmetics
+                    remainingPoints = result.Data.RemainingPoints,
+                    purchasedCosmetics = result.Data.Cosmetics
                 });
             }
             catch (UnauthorizedAccessException ex)
             {
                 return Unauthorized(new { error = ex.Message });
-            }
-            catch (PollSystem.Models.Exceptions.PollDomainException ex)
-            {
-                return BadRequest(new { error = $"[Domain Error]: {ex.Message}" });
             }
             catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)
             {
