@@ -80,22 +80,22 @@ namespace PollSystem.Services
         public async Task<UserProfileDto?> GetUserProfileAsync(Guid userId)
         {
             var user = await _userRepo.FindByIdAsync(userId);
+            if (user == null) return null;
 
-            if (user == null)
-                return null;
+            var users = await _userRepo.GetAllAsync();
+            var closedPolls = await _pollRepo.GetClosedPollsAsync();
+            var allUsersList = users.ToList();
 
-            return await CreateProfileDtoAsync(user);
+            return CreateProfileDto(user, allUsersList, closedPolls);
         }
 
         public async Task<IEnumerable<UserProfileDto>> GetAllUserProfilesAsync()
         {
             var users = await _userRepo.GetAllAsync();
-            var dtos = new List<UserProfileDto>();
-            foreach (var user in users)
-            {
-                dtos.Add(await CreateProfileDtoAsync(user));
-            }
-            return dtos;
+            var closedPolls = await _pollRepo.GetClosedPollsAsync();
+            var allUsersList = users.ToList();
+
+            return allUsersList.Select(user => CreateProfileDto(user, allUsersList, closedPolls));
         }
 
         public async Task FollowUserAsync(Guid followerId, Guid followedId)
@@ -148,13 +148,17 @@ namespace PollSystem.Services
             var user = await _userRepo.FindByIdAsync(userId);
             if (user is null) return Enumerable.Empty<UserProfileDto>();
 
+            var users = await _userRepo.GetAllAsync();
+            var closedPolls = await _pollRepo.GetClosedPollsAsync();
+            var allUsersList = users.ToList();
+
             var profiles = new List<UserProfileDto>();
             foreach (var follow in user.Following)
             {
-                var followed = await _userRepo.FindByIdAsync(follow.FollowedId);
+                var followed = allUsersList.FirstOrDefault(u => u.Id == follow.FollowedId);
                 if (followed is not null)
                 {
-                    profiles.Add(await CreateProfileDtoAsync(followed));
+                    profiles.Add(CreateProfileDto(followed, allUsersList, closedPolls));
                 }
             }
             return profiles;
@@ -198,14 +202,13 @@ namespace PollSystem.Services
             return result.OrderByDescending(vote => vote.PollClosedAt).Take(50);
         }
 
-        private async Task<UserProfileDto> CreateProfileDtoAsync(User user)
+        private UserProfileDto CreateProfileDto(User user, IEnumerable<User> allUsers, IEnumerable<Poll> closedPolls)
         {
-            var (correctPredictions, totalResolvedVotes) = await CalculateAccuracyStatsAsync(user.Id);
+            var (correctPredictions, totalResolvedVotes) = CalculateAccuracyStats(user.Id, closedPolls);
             var accuracyRate = totalResolvedVotes == 0
                 ? (double?)null
                 : Math.Round(correctPredictions * 100.0 / totalResolvedVotes, 1);
 
-            var allUsers = await _userRepo.GetAllAsync();
             int followerCount = allUsers.Count(follower => follower.IsFollowing(user.Id));
 
             return new UserProfileDto(
@@ -221,12 +224,10 @@ namespace PollSystem.Services
             );
         }
 
-        private async Task<(int CorrectPredictions, int TotalResolvedVotes)> CalculateAccuracyStatsAsync(Guid userId)
+        private (int CorrectPredictions, int TotalResolvedVotes) CalculateAccuracyStats(Guid userId, IEnumerable<Poll> closedPolls)
         {
             var correctPredictions = 0;
             var totalResolvedVotes = 0;
-
-            var closedPolls = await _pollRepo.GetClosedPollsAsync();
 
             foreach (var poll in closedPolls)
             {
