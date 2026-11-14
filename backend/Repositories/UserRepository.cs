@@ -18,21 +18,21 @@ namespace PollSystem.Repositories
 
         public void AddCosmetic(UserCosmetic cosmetic) => _db.UserCosmetics.Add(cosmetic);
 
-        public User? FindByUsername(string? username)
+        public async Task<User?> FindByUsernameAsync(string? username)
         {
             if (string.IsNullOrWhiteSpace(username))
                 return null;
 
-            return QueryUsers().FirstOrDefault(user => user.Username == username.Trim());
+            return await QueryUsers().FirstOrDefaultAsync(user => user.Username == username.Trim());
         }
 
-        public User? FindById(Guid id) => QueryUsers().FirstOrDefault(user => user.Id == id);
+        public async Task<User?> FindByIdAsync(Guid id) => await QueryUsers().FirstOrDefaultAsync(user => user.Id == id);
 
-        public IEnumerable<User> GetAll() => QueryUsers()
+        public async Task<IEnumerable<User>> GetAllAsync() => await QueryUsers()
             .Include(user => user.Followers)
             .OrderBy(user => user.Username)
             .AsSplitQuery()
-            .ToList();
+            .ToListAsync();
 
         private IQueryable<User> QueryUsers() => _db.Users
             .Include(user => user.Following)

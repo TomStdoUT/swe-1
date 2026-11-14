@@ -21,10 +21,10 @@ namespace PollSystem.Controllers
 
         [Authorize]
         [HttpGet]
-        public IActionResult GetAllPolls()
+        public async Task<IActionResult> GetAllPolls()
         {
             var username = User.FindFirstValue(ClaimTypes.Name);
-            var feed = _pollService.GetFeedForUser(username);
+            var feed = await _pollService.GetFeedForUserAsync(username);
             return Ok(feed);
         }
 
@@ -38,8 +38,7 @@ namespace PollSystem.Controllers
             try
             {
                 await _pollService.CreatePollAsync(userId, dto);
-                var userProfile = _userService.GetUserProfile(userId);
-                return Ok(new { message = "Apklausa sukurta sėkmingai!", remainingPoints = userProfile?.PointsBalance ?? 0 });
+                var userProfile = await _userService.GetUserProfileAsync(userId);                return Ok(new { message = "Apklausa sukurta sėkmingai!", remainingPoints = userProfile?.PointsBalance ?? 0 });
             }
             catch (Exception ex)
             {

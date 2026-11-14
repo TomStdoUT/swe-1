@@ -4,9 +4,10 @@ namespace PollSystem.Repositories.Interfaces
 {
     public interface IPollRepository
     {
-        IEnumerable<Poll> GetAll();
+        Task<IEnumerable<Poll>> GetAllAsync();
         IEnumerable<Poll> GetUnresolvedClosedPolls();
-        Poll? GetById(Guid id);
+        Task<Poll?> GetByIdAsync(Guid id);
+        Task<IEnumerable<Poll>> GetClosedPollsAsync();
         void Add(Poll poll);
         void AddVote(Vote vote);
         void AddComment(Comment comment);

@@ -20,12 +20,14 @@ namespace PollSystem.Services
             _unitOfWork = unitOfWork;
         }
 
-        public IEnumerable<PollFeedDto> GetFeedForUser(string? username)
+        public async Task<IEnumerable<PollFeedDto>> GetFeedForUserAsync(string? username)
         {
-            var user = _userRepo.FindByUsername(username);
+            var user = await _userRepo.FindByUsernameAsync(username);
             var activeUserId = user?.Id ?? GenerateDeterministicId(username);
 
-            return _pollRepo.GetAll()
+            var polls = await _pollRepo.GetAllAsync();
+
+            return polls
             .OrderByDescending(p => p.ClosingTime)
             .Select(p => new PollFeedDto(
                 p.Id,
@@ -76,11 +78,11 @@ namespace PollSystem.Services
 
         public async Task<(int remainingPoints, bool isEarlyBird)> CastVoteAsync(Guid pollId, Guid userId, VoteDto dto)
         {
-            var poll = _pollRepo.GetById(pollId);
+            var poll = await _pollRepo.GetByIdAsync(pollId);
             if (poll == null)
                 throw new KeyNotFoundException("Poll not found.");
 
-            var user = _userRepo.FindById(userId);
+            var user = await _userRepo.FindByIdAsync(userId);
             if (user == null)
                 throw new UnauthorizedAccessException("User not found.");
 
@@ -98,7 +100,7 @@ namespace PollSystem.Services
 
         public async Task DeletePollAsync(Guid pollId, Guid requestingUserId)
         {
-            var poll = _pollRepo.GetById(pollId);
+            var poll = await _pollRepo.GetByIdAsync(pollId);
 
             if (poll == null)
                 throw new KeyNotFoundException("Poll not found.");
@@ -112,7 +114,7 @@ namespace PollSystem.Services
 
         public async Task<Comment> AddCommentAsync(Guid pollId, Guid authorId, string authorName, string content)
         {
-            var poll = _pollRepo.GetById(pollId);
+            var poll = await _pollRepo.GetByIdAsync(pollId);
 
             if (poll == null)
                 throw new KeyNotFoundException("Poll not found.");
@@ -128,7 +130,8 @@ namespace PollSystem.Services
         public async Task ResolveClosedPollsAsync()
         {
             bool anyResolved = false;
-            var allUsers = _userRepo.GetAll().ToDictionary(u => u.Id);
+            var usersList = await _userRepo.GetAllAsync();
+            var allUsers = usersList.ToDictionary(u => u.Id);
 
             foreach (var poll in _pollRepo.GetUnresolvedClosedPolls())
             {
@@ -178,7 +181,8 @@ namespace PollSystem.Services
         public async Task EnsureDailyQuestionAsync()
         {
             var localNow = DateTime.Now;
-            bool exists = _pollRepo.GetAll().Any(p => p.IsDailyChallenge && p.CreatedAt.ToLocalTime().Date == localNow.Date);
+            var polls = await _pollRepo.GetAllAsync();
+            bool exists = polls.Any(p => p.IsDailyChallenge && p.CreatedAt.ToLocalTime().Date == localNow.Date);
             if (exists) return;
 
             var questions = new[]

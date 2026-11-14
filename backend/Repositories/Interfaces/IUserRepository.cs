@@ -6,8 +6,8 @@ namespace PollSystem.Repositories.Interfaces
     {
         void Add(User user);
         void AddCosmetic(UserCosmetic cosmetic);
-        User? FindByUsername(string? username);
-        User? FindById(Guid id);
-        IEnumerable<User> GetAll();
+        Task<User?> FindByUsernameAsync(string? username);
+        Task<User?> FindByIdAsync(Guid id);
+        Task<IEnumerable<User>> GetAllAsync();
     }
 }

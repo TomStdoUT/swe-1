@@ -5,7 +5,7 @@ namespace PollSystem.Services.Interfaces
 {
     public interface IPollService
     {
-        IEnumerable<PollFeedDto> GetFeedForUser(string? username);
+        Task<IEnumerable<PollFeedDto>> GetFeedForUserAsync(string? username);
         Task<Poll> CreatePollAsync(Guid creatorId, PollCreateDto dto);
         Task<(int remainingPoints, bool isEarlyBird)> CastVoteAsync(Guid pollId, Guid userId, VoteDto dto);
         Task DeletePollAsync(Guid pollId, Guid requestingUserId);
