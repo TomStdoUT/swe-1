@@ -18,12 +18,12 @@ namespace PollSystem.Controllers
 
         [Authorize]
         [HttpGet]
-        public IActionResult GetNotifications()
+        public async Task<IActionResult> GetNotifications()
         {
             if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
                 return Unauthorized();
 
-            var notifications = _notificationService.GetUserNotifications(userId);
+            var notifications = await _notificationService.GetUserNotificationsAsync(userId);
             return Ok(notifications);
         }
     }

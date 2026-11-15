@@ -67,4 +67,4 @@ await using (var scope = app.Services.CreateAsyncScope())
     await legacyImporter.ImportIfDatabaseIsEmptyAsync();
 }
 
-app.Run("http://127.0.0.1:5000");
+await app.RunAsync("http://127.0.0.1:5000");

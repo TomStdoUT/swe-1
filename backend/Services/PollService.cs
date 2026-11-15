@@ -133,7 +133,7 @@ namespace PollSystem.Services
             var usersList = await _userRepo.GetAllAsync();
             var allUsers = usersList.ToDictionary(u => u.Id);
 
-            foreach (var poll in _pollRepo.GetUnresolvedClosedPolls())
+            foreach (var poll in await _pollRepo.GetUnresolvedClosedPollsAsync())
             {
                 var payouts = poll.Resolve();
 
