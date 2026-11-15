@@ -97,6 +97,7 @@ namespace PollSystem.Tests.Unit
             var closedPoll = new Poll
             {
                 ClosingTime = DateTime.UtcNow.AddMinutes(-10),
+                IsResolved = true,
                 Options = new List<PollOption>
                 {
                     new("A") { Position = 0 },
