@@ -23,9 +23,9 @@ namespace PollSystem.Services
             return notification;
         }
 
-        public IEnumerable<Notification> GetUserNotifications(Guid targetUserId)
+        public Task<IEnumerable<Notification>> GetUserNotificationsAsync(Guid targetUserId)
         {
-            return _notificationRepo.GetByUserId(targetUserId);
+            return _notificationRepo.GetByUserIdAsync(targetUserId);
         }
     }
 }

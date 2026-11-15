@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using PollSystem.Data;
 using PollSystem.Models.Entities;
 using PollSystem.Repositories.Interfaces;
@@ -18,12 +19,12 @@ namespace PollSystem.Repositories
             _db.Notifications.Add(notification);
         }
 
-        public IEnumerable<Notification> GetByUserId(Guid targetUserId)
+        public async Task<IEnumerable<Notification>> GetByUserIdAsync(Guid targetUserId)
         {
-            return _db.Notifications
+            return await _db.Notifications
                 .Where(notification => notification.TargetUserId == targetUserId)
                 .OrderByDescending(notification => notification.CreatedAt)
-                .ToList();
+                .ToListAsync();
         }
     }
 }
