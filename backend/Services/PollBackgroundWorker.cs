@@ -9,6 +9,9 @@ namespace PollSystem.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PollBackgroundWorker> _logger;
+        // Prevents overlapping poll-resolution cycles if a previous iteration
+        // is still running when the next tick fires.
+        private readonly SemaphoreSlim _cycleLock = new(1, 1);
 
         public PollBackgroundWorker(IServiceProvider serviceProvider, ILogger<PollBackgroundWorker> logger)
         {
@@ -20,17 +23,28 @@ namespace PollSystem.Services
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                try
+                if (await _cycleLock.WaitAsync(0, stoppingToken))
                 {
-                    using var scope = _serviceProvider.CreateScope();
-                    var pollService = scope.ServiceProvider.GetRequiredService<IPollService>();
+                    try
+                    {
+                        using var scope = _serviceProvider.CreateScope();
+                        var pollService = scope.ServiceProvider.GetRequiredService<IPollService>();
 
-                    await pollService.EnsureDailyQuestionAsync();
-                    await pollService.ResolveClosedPollsAsync();
+                        await pollService.EnsureDailyQuestionAsync();
+                        await pollService.ResolveClosedPollsAsync();
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogError(ex, "Poll background worker failed.");
+                    }
+                    finally
+                    {
+                        _cycleLock.Release();
+                    }
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                else
                 {
-                    _logger.LogError(ex, "Poll background worker failed.");
+                    _logger.LogWarning("Poll background worker: previous cycle still running, skipping this tick.");
                 }
 
                 try
@@ -42,6 +56,12 @@ namespace PollSystem.Services
                     break;
                 }
             }
+        }
+
+        public override void Dispose()
+        {
+            _cycleLock.Dispose();
+            base.Dispose();
         }
     }
 }
