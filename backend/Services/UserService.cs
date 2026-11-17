@@ -1,14 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.EntityFrameworkCore;
 using PollSystem.Models.DTOs;
 using PollSystem.Models.Entities;
 using PollSystem.Repositories.Interfaces;
 using PollSystem.Services.Interfaces;
 using PollSystem.Extensions;
+using PollSystem.Models.Common;
 
 namespace PollSystem.Services
 {
@@ -258,12 +257,12 @@ namespace PollSystem.Services
             return (correctPredictions, totalResolvedVotes);
         }
 
-        public async Task<PollSystem.Models.Common.OperationResult<(int RemainingPoints, List<string> Cosmetics)>> BuyCosmeticAsync(Guid userId, string item)
+        public async Task<OperationResult<User>> BuyCosmeticAsync(Guid userId, string item)
         {
             var user = await _userRepo.FindByIdAsync(userId);
 
             if (user == null)
-                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure("User not found.");
+                return OperationResult<User>.Failure("User not found.");
 
             var storePrices = new Dictionary<string, int>
             {
@@ -273,13 +272,13 @@ namespace PollSystem.Services
             };
 
             if (!storePrices.TryGetValue(item, out int cost))
-                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure("Item does not exist.");
+                return OperationResult<User>.Failure("Item does not exist.");
 
             if (user.Cosmetics.Any(cosmetic => cosmetic.Name == item))
-                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure("You already own this cosmetic!");
+                return OperationResult<User>.Failure("You already own this cosmetic!");
 
             if (user.PointsBalance < cost)
-                return PollSystem.Models.Common.OperationResult<(int, List<string>)>.Failure($"Insufficient points balance (costs {cost} points).");
+                return OperationResult<User>.Failure($"Insufficient points balance (costs {cost} points).");
 
             user.PointsBalance -= cost;
             var cosmetic = new UserCosmetic { UserId = user.Id, Name = item };
@@ -288,11 +287,7 @@ namespace PollSystem.Services
 
             await _unitOfWork.SaveChangesAsync();
 
-            var result = PollSystem.Models.Common.OperationResult<(int, List<string>)>.Success(
-                (user.PointsBalance, user.Cosmetics.Select(c => c.Name).ToList())
-            );
-
-            return result;
+            return OperationResult<User>.Success(user);
         }
     }
 }
