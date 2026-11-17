@@ -208,16 +208,17 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
-        public async Task BuyCosmeticAsync_ValidPurchase_DeductsPointsAndReturnsSuccess()
+        public async Task BuyCosmeticAsync_ValidPurchase_DeductsPointsAndReturnsUpdatedUser()
         {
-            var user = new User("alice", "hash", 50);
+            var user = new User("alice", "hash", 100);
             _userRepo.Setup(r => r.FindByIdAsync(user.Id)).ReturnsAsync(user);
 
             var result = await _sut.BuyCosmeticAsync(user.Id, "gold_name");
 
             Assert.True(result.IsSuccess);
-            Assert.Equal(30, result.Data.RemainingPoints);
-            Assert.Contains("gold_name", result.Data.Cosmetics);
+            Assert.NotNull(result.Data);
+            Assert.Equal(80, result.Data!.PointsBalance);
+            Assert.Contains(result.Data.Cosmetics, c => c.Name == "gold_name");
             _userRepo.Verify(r => r.AddCosmetic(It.IsAny<UserCosmetic>()), Times.Once);
             _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }

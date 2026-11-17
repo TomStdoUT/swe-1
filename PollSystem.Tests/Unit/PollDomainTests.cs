@@ -232,16 +232,17 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
-        public void OperationResult_Map_TransformsSuccessAndFailureCorrectly()
+        public void OperationResult_Map_ExecutesMatchingBranchForEntity()
         {
-            var success = OperationResult<int>.Success(42);
-            var failure = OperationResult<int>.Failure("Failed operation");
+            var user = new User("alice", "hash", 100);
+            var success = OperationResult<User>.Success(user);
+            var failure = OperationResult<User>.Failure("User not found.");
 
-            var successOutput = success.Map(val => $"OK:{val}", err => $"ERR:{err}");
-            var failureOutput = failure.Map(val => $"OK:{val}", err => $"ERR:{err}");
+            var okText = success.Map(u => $"{u.Username}:{u.PointsBalance}", err => $"err:{err}");
+            var failText = failure.Map(u => $"{u.Username}:{u.PointsBalance}", err => $"err:{err}");
 
-            Assert.Equal("OK:42", successOutput);
-            Assert.Equal("ERR:Failed operation", failureOutput);
+            Assert.Equal("alice:100", okText);
+            Assert.Equal("err:User not found.", failText);
         }
     }
 }
