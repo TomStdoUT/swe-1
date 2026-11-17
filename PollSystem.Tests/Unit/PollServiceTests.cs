@@ -161,8 +161,7 @@ namespace PollSystem.Tests.Unit
             poll.Votes.Add(new Vote(loser.Id, new List<int> { 1 }, 20));
 
             _userRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<User> { winner, loser });
-            _pollRepo.Setup(r => r.GetUnresolvedClosedPolls()).Returns(new List<Poll> { poll });
-
+            _pollRepo.Setup(r => r.GetUnresolvedClosedPollsAsync()).ReturnsAsync(new List<Poll> { poll });
             await _sut.ResolveClosedPollsAsync();
 
             Assert.True(poll.IsResolved);

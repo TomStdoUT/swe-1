@@ -38,20 +38,21 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
-        public void GetUserNotifications_ReturnsNotificationsFromRepository()
+        public async Task GetUserNotificationsAsync_ReturnsNotificationsForUser()
         {
             var userId = Guid.NewGuid();
             var expected = new List<Notification>
             {
-                new(userId, "First notification"),
-                new(userId, "Second notification")
+                new(userId, "First alert"),
+                new(userId, "Second alert")
             };
-            _notificationRepo.Setup(r => r.GetByUserId(userId)).Returns(expected);
 
-            var result = _sut.GetUserNotifications(userId).ToList();
+            _notificationRepo.Setup(r => r.GetByUserIdAsync(userId)).ReturnsAsync(expected);
+
+            var result = (await _sut.GetUserNotificationsAsync(userId)).ToList();
 
             Assert.Equal(2, result.Count);
-            Assert.Equal("First notification", result[0].Content);
+            Assert.Equal("First alert", result[0].Content);
         }
     }
 }
