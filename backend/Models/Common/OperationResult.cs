@@ -1,6 +1,8 @@
+using PollSystem.Models.Entities;
+
 namespace PollSystem.Models.Common
 {
-    public class OperationResult<T>
+    public class OperationResult<T> where T : class, IEntity
     {
         public bool IsSuccess { get; init; }
         public string Message { get; init; } = string.Empty;
@@ -13,6 +15,7 @@ namespace PollSystem.Models.Common
             new() { IsSuccess = false, Message = message, Data = default };
 
         public TResult Map<TResult>(Func<T, TResult> onSuccess, Func<string, TResult> onFailure)
+            where TResult : notnull
         {
             return IsSuccess && Data is not null ? onSuccess(Data) : onFailure(Message);
         }

@@ -1,6 +1,6 @@
 namespace PollSystem.Models.Entities
 {
-    public class Poll : IEquatable<Poll>, IComparable<Poll>
+    public class Poll : IEntity, IEquatable<Poll>, IComparable<Poll>
     {
         public Guid Id { get; init; } = Guid.NewGuid();
         public Guid CreatorId { get; init; }
@@ -90,7 +90,7 @@ namespace PollSystem.Models.Entities
 
             IsResolved = true;
             return payouts;
-            }
+        }
 
         public List<int> GetWinningOptions()
         {

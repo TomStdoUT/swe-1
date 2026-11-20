@@ -1,6 +1,6 @@
 namespace PollSystem.Models.Entities
 {
-    public class VoteSelection
+    public class VoteSelection : IEntity
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid VoteId { get; set; }

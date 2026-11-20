@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace PollSystem.Models.Entities
 {
-    public class Comment
+    public class Comment : IEntity
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         [JsonIgnore]
