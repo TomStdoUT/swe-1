@@ -1,0 +1,129 @@
+.roulette-page {
+  width: min(100%, 720px);
+  margin: 32px auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.roulette-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.roulette-header h1 {
+  margin: 0 0 4px;
+  font-size: 32px;
+  letter-spacing: -0.8px;
+}
+
+.roulette-header button {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-h);
+  background: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.roulette-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 32px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  position: relative;
+}
+
+.roulette-pointer {
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 22px solid var(--accent);
+  margin-bottom: -14px;
+  z-index: 2;
+}
+
+.roulette-wheel {
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 6px solid var(--accent);
+  background: conic-gradient(
+    rgba(170, 59, 255, 0.14) 0deg 45deg,
+    rgba(170, 59, 255, 0.28) 45deg 90deg,
+    rgba(170, 59, 255, 0.14) 90deg 135deg,
+    rgba(170, 59, 255, 0.28) 135deg 180deg,
+    rgba(170, 59, 255, 0.14) 180deg 225deg,
+    rgba(170, 59, 255, 0.28) 225deg 270deg,
+    rgba(170, 59, 255, 0.14) 270deg 315deg,
+    rgba(170, 59, 255, 0.28) 315deg 360deg
+  );
+  position: relative;
+  transition: transform 3.2s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+  box-shadow: var(--shadow);
+}
+
+.roulette-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+  margin-top: -12px;
+  margin-left: -20px;
+  width: 40px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.roulette-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.roulette-spin-btn {
+  padding: 12px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.roulette-spin-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.roulette-cooldown,
+.roulette-last {
+  margin: 0;
+  font-size: 15px;
+}
+
+.roulette-win-banner {
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 600;
+}
+
+.roulette-error {
+  color: #dc2626;
+  margin-bottom: 16px;
+}
