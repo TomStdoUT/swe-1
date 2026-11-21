@@ -23,8 +23,15 @@ namespace PollSystem.Controllers
             if (!TryGetUserId(out var userId))
                 return Unauthorized();
 
-            var status = await _rouletteService.GetStatusAsync(userId, cancellationToken);
-            return Ok(status);
+            try
+            {
+                var status = await _rouletteService.GetStatusAsync(userId, cancellationToken);
+                return Ok(status);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
         }
 
         [HttpPost("spin")]

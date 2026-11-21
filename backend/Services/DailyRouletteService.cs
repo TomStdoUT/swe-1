@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using PollSystem.Models.DTOs;
 using PollSystem.Models.Entities;
@@ -8,6 +9,8 @@ namespace PollSystem.Services
 {
     public sealed class DailyRouletteService : IDailyRouletteService
     {
+        private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> UserLocks = new();
+
         private readonly IDailyRouletteRepository _rouletteRepo;
         private readonly IUserRepository _userRepo;
         private readonly IUnitOfWork _unitOfWork;
@@ -39,6 +42,10 @@ namespace PollSystem.Services
             Guid userId,
             CancellationToken cancellationToken = default)
         {
+            var user = await _userRepo.FindByIdAsync(userId);
+            if (user is null)
+                throw new UnauthorizedAccessException("User not found.");
+
             var latestSpin = await _rouletteRepo.GetLatestByUserIdAsync(userId, cancellationToken);
             var nowUtc = DateTime.UtcNow;
 
@@ -65,38 +72,48 @@ namespace PollSystem.Services
             Guid userId,
             CancellationToken cancellationToken = default)
         {
-            var user = await _userRepo.FindByIdAsync(userId);
-            if (user is null)
-                throw new UnauthorizedAccessException("User not found.");
+            var userLock = UserLocks.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
+            await userLock.WaitAsync(cancellationToken);
 
-            var nowUtc = DateTime.UtcNow;
-            var latestSpin = await _rouletteRepo.GetLatestByUserIdAsync(userId, cancellationToken);
-
-            if (latestSpin is not null)
+            try
             {
-                var nextAvailable = latestSpin.SpunAtUtc.AddHours(_cooldownHours);
-                if (nowUtc < nextAvailable)
+                var user = await _userRepo.FindByIdAsync(userId);
+                if (user is null)
+                    throw new UnauthorizedAccessException("User not found.");
+
+                var nowUtc = DateTime.UtcNow;
+                var latestSpin = await _rouletteRepo.GetLatestByUserIdAsync(userId, cancellationToken);
+
+                if (latestSpin is not null)
                 {
-                    var unit = _cooldownHours == 1 ? "hour" : "hours";
-                    throw new InvalidOperationException($"Daily roulette can only be spun once every {_cooldownHours} {unit}.");
+                    var nextAvailable = latestSpin.SpunAtUtc.AddHours(_cooldownHours);
+                    if (nowUtc < nextAvailable)
+                    {
+                        var unit = _cooldownHours == 1 ? "hour" : "hours";
+                        throw new InvalidOperationException($"Daily roulette can only be spun once every {_cooldownHours} {unit}.");
+                    }
                 }
+
+                var winningIndex = RandomNumberGenerator.GetInt32(_wheelSegments.Count);
+                var awardedPoints = _wheelSegments[winningIndex];
+
+                user.PointsBalance += awardedPoints;
+
+                var spin = new DailyRouletteSpin(user.Id, awardedPoints, nowUtc);
+                _rouletteRepo.Add(spin);
+
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                return new DailyRouletteSpinResultDto(
+                    AwardedPoints: awardedPoints,
+                    WinningSegmentIndex: winningIndex,
+                    NewPointsBalance: user.PointsBalance,
+                    NextSpinAvailableAtUtc: nowUtc.AddHours(_cooldownHours));
             }
-
-            var winningIndex = RandomNumberGenerator.GetInt32(_wheelSegments.Count);
-            var awardedPoints = _wheelSegments[winningIndex];
-
-            user.PointsBalance += awardedPoints;
-
-            var spin = new DailyRouletteSpin(user.Id, awardedPoints, nowUtc);
-            _rouletteRepo.Add(spin);
-
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return new DailyRouletteSpinResultDto(
-                AwardedPoints: awardedPoints,
-                WinningSegmentIndex: winningIndex,
-                NewPointsBalance: user.PointsBalance,
-                NextSpinAvailableAtUtc: nowUtc.AddHours(_cooldownHours));
+            finally
+            {
+                userLock.Release();
+            }
         }
 
         private static IReadOnlyList<int> BuildSegments(int minPoints, int maxPoints, int segmentCount)
