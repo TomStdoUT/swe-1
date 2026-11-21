@@ -1,5 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './DailyRoulette.css';
+
+const EVEN_SLICE_COLORS = [
+  'rgba(170, 59, 255, 0.14)',
+  'rgba(170, 59, 255, 0.28)',
+];
+
+const ODD_SLICE_COLORS = [
+  'rgba(170, 59, 255, 0.12)',
+  'rgba(170, 59, 255, 0.24)',
+  'rgba(170, 59, 255, 0.36)',
+];
+
+function buildWheelBackground(segmentCount) {
+  if (segmentCount <= 0) return EVEN_SLICE_COLORS[0];
+
+  const sliceAngle = 360 / segmentCount;
+  const isOdd = segmentCount % 2 === 1;
+  const stops = [];
+
+  for (let i = 0; i < segmentCount; i++) {
+    let color;
+    if (!isOdd) {
+      color = EVEN_SLICE_COLORS[i % 2];
+    } else if (i === segmentCount - 1 && i % 3 === 0) {
+      color = ODD_SLICE_COLORS[1];
+    } else {
+      color = ODD_SLICE_COLORS[i % 3];
+    }
+
+    const startDeg = i * sliceAngle;
+    const endDeg = (i + 1) * sliceAngle;
+    stops.push(`${color} ${startDeg}deg ${endDeg}deg`);
+  }
+
+  return `conic-gradient(${stops.join(', ')})`;
+}
 
 export function DailyRoulette({ onBack, onSpinSuccess }) {
   const [status, setStatus] = useState(null);
@@ -8,6 +44,15 @@ export function DailyRoulette({ onBack, onSpinSuccess }) {
   const [resultBanner, setResultBanner] = useState(null);
   const [error, setError] = useState('');
   const [countdownText, setCountdownText] = useState('');
+  const spinTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (spinTimeoutRef.current !== null) {
+        clearTimeout(spinTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +106,9 @@ export function DailyRoulette({ onBack, onSpinSuccess }) {
 
   const segments = status?.wheelSegments ?? [];
   const segmentAngle = segments.length > 0 ? 360 / segments.length : 0;
+  const wheelBackground = buildWheelBackground(segments.length);
+  const minPoints = segments.length > 0 ? Math.min(...segments) : null;
+  const maxPoints = segments.length > 0 ? Math.max(...segments) : null;
 
   const handleSpin = async () => {
     if (!status?.canSpin || isSpinning || segments.length === 0) return;
@@ -92,7 +140,12 @@ export function DailyRoulette({ onBack, onSpinSuccess }) {
 
       setRotationDeg(nextRotation);
 
-      setTimeout(() => {
+      if (spinTimeoutRef.current !== null) {
+        clearTimeout(spinTimeoutRef.current);
+      }
+
+      spinTimeoutRef.current = setTimeout(() => {
+        spinTimeoutRef.current = null;
         setIsSpinning(false);
         setResultBanner(`+${data.awardedPoints} pts`);
         setStatus((prev) => ({
@@ -117,7 +170,11 @@ export function DailyRoulette({ onBack, onSpinSuccess }) {
       <div className="roulette-header">
         <div>
           <h1>Daily Roulette</h1>
-          <p>One spin per day. Win between 10 and 100 points.</p>
+          <p>
+            {minPoints !== null && maxPoints !== null
+              ? `One spin per day. Win between ${minPoints} and ${maxPoints} points.`
+              : 'One spin per day.'}
+          </p>
         </div>
         <button type="button" onClick={onBack}>Back</button>
       </div>
@@ -129,7 +186,10 @@ export function DailyRoulette({ onBack, onSpinSuccess }) {
           <div className="roulette-pointer" aria-hidden="true" />
           <div
             className="roulette-wheel"
-            style={{ transform: `rotate(${rotationDeg}deg)` }}
+            style={{
+              transform: `rotate(${rotationDeg}deg)`,
+              background: wheelBackground,
+            }}
           >
             {segments.map((pts, idx) => {
               const angle = idx * segmentAngle;
