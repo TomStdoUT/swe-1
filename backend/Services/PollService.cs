@@ -194,8 +194,7 @@ namespace PollSystem.Services
                 new { Question = "Is coffee better than tea?", Category = "Fun", Options = new List<string> { "Coffee", "Tea" } }
             };
 
-            var random = new Random();
-            var selected = questions[random.Next(questions.Length)];
+            var selected = questions[Random.Shared.Next(questions.Length)];
 
             var poll = new Poll
             {
