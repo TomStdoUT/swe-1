@@ -1,3 +1,5 @@
+using PollSystem.Models.Exceptions;
+
 namespace PollSystem.Models.Entities
 {
     public class Poll : IEntity, IEquatable<Poll>, IComparable<Poll>
@@ -24,13 +26,13 @@ namespace PollSystem.Models.Entities
         public void CastVote(User user, Vote vote)
         {
             if (IsClosed())
-                throw new InvalidOperationException("Voting for this poll has ended.");
+                throw new PollDomainException("Voting for this poll has ended.", "POLL_CLOSED", Id);
 
             if (!vote.OptionIndices.Any())
                 throw new ArgumentException("You must select at least one option.");
 
             if (!AllowMultiple && vote.OptionIndices.Count > 1)
-                throw new InvalidOperationException("This poll only allows a single choice.");
+                throw new PollDomainException("This poll only allows a single choice.", "MULTIPLE_CHOICES_NOT_ALLOWED", Id);
 
             foreach (var index in vote.OptionIndices)
             {
@@ -38,16 +40,14 @@ namespace PollSystem.Models.Entities
                     throw new ArgumentOutOfRangeException(nameof(vote.OptionIndices), "Option doesn't exist.");
             }
 
-            // Deduct the points immediately, but do NOT award winnings yet
             if (vote.BettedPoints > 0)
             {
                 if (user.PointsBalance < vote.BettedPoints)
-                    throw new InvalidOperationException("Insufficient points balance.");
+                    throw new PollDomainException("Insufficient points balance.", "INSUFFICIENT_POINTS", Id);
 
                 user.PointsBalance -= vote.BettedPoints;
             }
 
-            // Domain Logic: The Poll strictly calculates its own early bird window
             var totalSeconds = (ClosingTime - CreatedAt).TotalSeconds;
             var elapsedSeconds = (DateTime.UtcNow - CreatedAt).TotalSeconds;
 
@@ -59,11 +59,10 @@ namespace PollSystem.Models.Entities
             Votes.Add(finalizedVote);
         }
 
-        // Domain Logic: Resolves the poll securely and generates a payout dictionary
         public Dictionary<Guid, int> Resolve()
         {
             if (!IsClosed())
-                throw new InvalidOperationException("Poll is not closed yet.");
+                throw new PollDomainException("Poll is not closed yet.", "POLL_NOT_CLOSED", Id);
 
             if (IsResolved)
                 return new Dictionary<Guid, int>();

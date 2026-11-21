@@ -9,6 +9,7 @@ using PollSystem.Repositories;
 using PollSystem.Repositories.Interfaces;
 using PollSystem.Services;
 using PollSystem.Services.Interfaces;
+using PollSystem.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
@@ -19,7 +20,10 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<PollDomainExceptionFilter>();
+});
 
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "swe-1.db");
 builder.Services.AddDbContext<AppDbContext>(options =>
