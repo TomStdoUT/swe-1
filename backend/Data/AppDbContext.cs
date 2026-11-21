@@ -17,6 +17,7 @@ namespace PollSystem.Data
         public DbSet<VoteSelection> VoteSelections => Set<VoteSelection>();
         public DbSet<Comment> Comments => Set<Comment>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<DailyRouletteSpin> DailyRouletteSpins => Set<DailyRouletteSpin>();
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -135,6 +136,16 @@ namespace PollSystem.Data
                 entity.HasOne<User>()
                     .WithMany()
                     .HasForeignKey(notification => notification.TargetUserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DailyRouletteSpin>(entity =>
+            {
+                entity.HasKey(spin => spin.Id);
+                entity.HasIndex(spin => new { spin.UserId, spin.SpunAtUtc });
+                entity.HasOne<User>()
+                    .WithMany()
+                    .HasForeignKey(spin => spin.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

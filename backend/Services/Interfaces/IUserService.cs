@@ -1,3 +1,4 @@
+using PollSystem.Models.Common;
 using PollSystem.Models.DTOs;
 using PollSystem.Models.Entities;
 
@@ -13,7 +14,7 @@ namespace PollSystem.Services.Interfaces
         Task FollowUserAsync(Guid followerId, Guid followedId);
         Task UnfollowUserAsync(Guid followerId, Guid followedId);
         Task SaveStateAsync();
-        Task<PollSystem.Models.Common.OperationResult<(int RemainingPoints, List<string> Cosmetics)>> BuyCosmeticAsync(Guid userId, string item);
+        Task<OperationResult<User>> BuyCosmeticAsync(Guid userId, string item);
         Task<IEnumerable<UserProfileDto>> GetFollowingProfilesAsync(Guid userId);
         Task<IEnumerable<FollowingVoteDto>> GetFollowingVotesAsync(Guid userId);
     }

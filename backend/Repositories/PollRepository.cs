@@ -22,12 +22,12 @@ namespace PollSystem.Repositories
                 .ToListAsync();
         }
 
-        public IEnumerable<Poll> GetUnresolvedClosedPolls()
+        public async Task<IEnumerable<Poll>> GetUnresolvedClosedPollsAsync()
         {
-            return _db.Polls
+            return await _db.Polls
                 .Include(p => p.Votes).ThenInclude(v => v.Selections)
                 .Where(p => p.ClosingTime <= DateTime.UtcNow && !p.IsResolved)
-                .ToList();
+                .ToListAsync();
         }
 
         public async Task<Poll?> GetByIdAsync(Guid id) => await QueryPolls().FirstOrDefaultAsync(poll => poll.Id == id);

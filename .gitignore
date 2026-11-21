@@ -10,3 +10,6 @@ users.json
 *.db
 *.db-shm
 *.db-wal
+
+TestResults/
+*.cobertura.xml

@@ -1,6 +1,6 @@
 namespace PollSystem.Models.Entities
 {
-    public class Notification
+    public class Notification : IEntity
     {
         public Guid Id { get; init; } = Guid.NewGuid();
         public Guid TargetUserId { get; init; }

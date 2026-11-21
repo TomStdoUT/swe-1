@@ -5,6 +5,6 @@ namespace PollSystem.Repositories.Interfaces
     public interface INotificationRepository
     {
         void Add(Notification notification);
-        IEnumerable<Notification> GetByUserId(Guid targetUserId);
+        Task<IEnumerable<Notification>> GetByUserIdAsync(Guid targetUserId);
     }
 }

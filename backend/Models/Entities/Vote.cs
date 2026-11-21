@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace PollSystem.Models.Entities
 {
-    public class Vote
+    public class Vote : IEntity
     {
         [JsonIgnore]
         public Guid Id { get; set; } = Guid.NewGuid();

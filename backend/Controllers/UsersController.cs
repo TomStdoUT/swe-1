@@ -150,11 +150,11 @@ namespace PollSystem.Controllers
                 var result = await _userService.BuyCosmeticAsync(userId, item);
 
                 return result.Map<IActionResult>(
-                    data => Ok(new
+                    updatedUser => Ok(new
                     {
                         message = "Purchased successfully!",
-                        remainingPoints = data.RemainingPoints,
-                        purchasedCosmetics = data.Cosmetics
+                        remainingPoints = updatedUser.PointsBalance,
+                        purchasedCosmetics = updatedUser.Cosmetics.Select(c => c.Name).ToList()
                     }),
                     error => BadRequest(new { error })
                 );

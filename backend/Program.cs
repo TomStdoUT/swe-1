@@ -46,10 +46,12 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPollRepository, PollRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IDailyRouletteRepository, DailyRouletteRepository>();
 
 builder.Services.AddScoped<IPollService, PollService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IDailyRouletteService, DailyRouletteService>();
 builder.Services.AddHostedService<PollBackgroundWorker>();
 
 var app = builder.Build();
@@ -67,4 +69,6 @@ await using (var scope = app.Services.CreateAsyncScope())
     await legacyImporter.ImportIfDatabaseIsEmptyAsync();
 }
 
-app.Run("http://127.0.0.1:5000");
+await app.RunAsync("http://127.0.0.1:5000");
+
+public partial class Program { }
