@@ -5,6 +5,7 @@ import { FullFeed } from './components/FullFeed';
 import { Login } from './pages/Login';
 import { PublicProfiles } from './pages/PublicProfiles';
 import { FollowingFeed } from './pages/FollowingFeed';
+import { DailyRoulette } from './pages/DailyRoulette';
 import './App.css';
 
 function App() {
@@ -91,6 +92,9 @@ function App() {
         <button type="button" onClick={() => setCurrentView('following')}>
           Following feed
         </button>
+        <button type="button" onClick={() => setCurrentView('roulette')}>
+          Daily Roulette
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -138,6 +142,14 @@ function App() {
         />
       ) : currentView === 'following' ? (
         <FollowingFeed onBack={() => setCurrentView('creator')} />
+      ) : currentView === 'roulette' ? (
+        <DailyRoulette
+          onBack={() => setCurrentView('creator')}
+          onSpinSuccess={(newBalance) => {
+            setUserPoints(newBalance);
+            setRefreshTrigger((prev) => prev + 1);
+          }}
+        />
       ) : currentView === 'creator' ? (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', padding: '20px', alignItems: 'flex-start' }}>
           <CategorizedPoll

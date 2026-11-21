@@ -51,6 +51,28 @@ namespace swe_1.Data.Migrations
                     b.ToTable("Comments");
                 });
 
+            modelBuilder.Entity("PollSystem.Models.Entities.DailyRouletteSpin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("AwardedPoints")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SpunAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "SpunAtUtc");
+
+                    b.ToTable("DailyRouletteSpins");
+                });
+
             modelBuilder.Entity("PollSystem.Models.Entities.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -291,6 +313,15 @@ namespace swe_1.Data.Migrations
                     b.HasOne("PollSystem.Models.Entities.Poll", null)
                         .WithMany("Comments")
                         .HasForeignKey("PollId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PollSystem.Models.Entities.DailyRouletteSpin", b =>
+                {
+                    b.HasOne("PollSystem.Models.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
