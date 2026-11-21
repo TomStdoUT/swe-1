@@ -9,8 +9,6 @@ namespace PollSystem.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<PollBackgroundWorker> _logger;
-        // Prevents overlapping poll-resolution cycles if a previous iteration
-        // is still running when the next tick fires.
         private readonly SemaphoreSlim _cycleLock = new(1, 1);
 
         public PollBackgroundWorker(IServiceProvider serviceProvider, ILogger<PollBackgroundWorker> logger)
@@ -19,11 +17,11 @@ namespace PollSystem.Services
             _logger = logger;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                if (await _cycleLock.WaitAsync(0, stoppingToken))
+                if (await _cycleLock.WaitAsync(0))
                 {
                     try
                     {
@@ -57,11 +55,10 @@ namespace PollSystem.Services
                 }
             }
         }
-
         public override void Dispose()
         {
-            _cycleLock.Dispose();
             base.Dispose();
+            _cycleLock.Dispose();
         }
     }
 }
