@@ -3,6 +3,7 @@ using PollSystem.Models.DTOs;
 using PollSystem.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using PollSystem.Models.Exceptions;
 
 namespace PollSystem.Controllers
 {
@@ -58,7 +59,7 @@ namespace PollSystem.Controllers
                 var (remainingPoints, isEarlyBird) = await _pollService.CastVoteAsync(id, userId, dto);
                 return Ok(new { message = "Vote accepted!", remainingPoints, isEarlyBird });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not PollDomainException)
             {
                 return BadRequest(new { error = ex.Message });
             }
