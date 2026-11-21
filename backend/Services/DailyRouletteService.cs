@@ -76,7 +76,10 @@ namespace PollSystem.Services
             {
                 var nextAvailable = latestSpin.SpunAtUtc.AddHours(_cooldownHours);
                 if (nowUtc < nextAvailable)
-                    throw new InvalidOperationException("Daily roulette can only be spun once every 24 hours.");
+                {
+                    var unit = _cooldownHours == 1 ? "hour" : "hours";
+                    throw new InvalidOperationException($"Daily roulette can only be spun once every {_cooldownHours} {unit}.");
+                }
             }
 
             var winningIndex = RandomNumberGenerator.GetInt32(_wheelSegments.Count);
@@ -103,7 +106,8 @@ namespace PollSystem.Services
             {
                 var t = segmentCount == 1 ? 0.0 : (double)i / (segmentCount - 1);
                 var value = minPoints + (maxPoints - minPoints) * t;
-                segments[i] = (int)Math.Round(value / 5.0) * 5;
+                var rounded = (int)Math.Round(value / 5.0) * 5;
+                segments[i] = Math.Max(minPoints, rounded);
             }
 
             segments[0] = minPoints;
