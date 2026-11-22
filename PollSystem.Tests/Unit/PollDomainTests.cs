@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using PollSystem.Extensions;
 using PollSystem.Models.Common;
 using PollSystem.Models.Entities;
+using PollSystem.Models.Exceptions;
 using Xunit;
 
 namespace PollSystem.Tests.Unit
@@ -56,7 +57,7 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
-        public void CastVote_ClosedPoll_ThrowsInvalidOperationException()
+        public void CastVote_ClosedPoll_ThrowsPollDomainException()
         {
             var user = new User("alice", "hashed_password", 100);
             var poll = new Poll
@@ -65,8 +66,11 @@ namespace PollSystem.Tests.Unit
                 Options = new List<PollOption> { new("Yes") { Position = 0 } }
             };
 
-            Assert.Throws<InvalidOperationException>(() =>
+            var ex = Assert.Throws<PollDomainException>(() =>
                 poll.CastVote(user, new Vote(user.Id, new List<int> { 0 }, 10)));
+
+            Assert.Equal("POLL_CLOSED", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
         }
 
         [Fact]
@@ -84,7 +88,7 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
-        public void CastVote_MultipleOptionsWhenDisallowed_ThrowsInvalidOperationException()
+        public void CastVote_MultipleOptionsWhenDisallowed_ThrowsPollDomainException()
         {
             var user = new User("alice", "hashed_password", 100);
             var poll = new Poll
@@ -98,8 +102,11 @@ namespace PollSystem.Tests.Unit
                 }
             };
 
-            Assert.Throws<InvalidOperationException>(() =>
+            var ex = Assert.Throws<PollDomainException>(() =>
                 poll.CastVote(user, new Vote(user.Id, new List<int> { 0, 1 }, 0)));
+
+            Assert.Equal("MULTIPLE_CHOICES_NOT_ALLOWED", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
         }
 
         [Fact]
@@ -117,7 +124,7 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
-        public void CastVote_InsufficientPoints_ThrowsInvalidOperationException()
+        public void CastVote_InsufficientPoints_ThrowsPollDomainException()
         {
             var user = new User("alice", "hashed_password", 15);
             var poll = new Poll
@@ -126,19 +133,25 @@ namespace PollSystem.Tests.Unit
                 Options = new List<PollOption> { new("A") { Position = 0 } }
             };
 
-            Assert.Throws<InvalidOperationException>(() =>
+            var ex = Assert.Throws<PollDomainException>(() =>
                 poll.CastVote(user, new Vote(user.Id, new List<int> { 0 }, 30)));
+
+            Assert.Equal("INSUFFICIENT_POINTS", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
         }
 
         [Fact]
-        public void Resolve_PollNotClosed_ThrowsInvalidOperationException()
+        public void Resolve_PollNotClosed_ThrowsPollDomainException()
         {
             var poll = new Poll
             {
                 ClosingTime = DateTime.UtcNow.AddMinutes(15)
             };
 
-            Assert.Throws<InvalidOperationException>(() => poll.Resolve());
+            var ex = Assert.Throws<PollDomainException>(() => poll.Resolve());
+
+            Assert.Equal("POLL_NOT_CLOSED", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
         }
 
         [Fact]
