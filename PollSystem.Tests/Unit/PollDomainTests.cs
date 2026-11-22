@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
 using PollSystem.Extensions;
 using PollSystem.Models.Common;
 using PollSystem.Models.Entities;
 using PollSystem.Models.Exceptions;
-using Xunit;
 
 namespace PollSystem.Tests.Unit
 {
