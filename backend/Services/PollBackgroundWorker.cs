@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PollSystem.Services.Interfaces;
@@ -7,13 +6,13 @@ namespace PollSystem.Services
 {
     public class PollBackgroundWorker : BackgroundService
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<PollBackgroundWorker> _logger;
         private readonly SemaphoreSlim _cycleLock = new(1, 1);
 
-        public PollBackgroundWorker(IServiceProvider serviceProvider, ILogger<PollBackgroundWorker> logger)
+        public PollBackgroundWorker(IServiceScopeFactory scopeFactory, ILogger<PollBackgroundWorker> logger)
         {
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory;
             _logger = logger;
         }
 
@@ -25,7 +24,7 @@ namespace PollSystem.Services
                 {
                     try
                     {
-                        using var scope = _serviceProvider.CreateScope();
+                        using var scope = _scopeFactory.CreateScope();
                         var pollService = scope.ServiceProvider.GetRequiredService<IPollService>();
 
                         await pollService.EnsureDailyQuestionAsync();

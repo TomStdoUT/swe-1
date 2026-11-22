@@ -23,12 +23,12 @@ namespace PollSystem.Data
                 return;
             }
 
-            var usersPath = FindLegacyFile("users.json");
-            var pollsPath = FindLegacyFile("poll_snapshot.json");
             var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var users = await ReadAsync<List<LegacyUserData>>(usersPath, jsonOptions, cancellationToken)
+            var users = await ReadFirstAvailableAsync<List<LegacyUserData>>(
+                "users.json", jsonOptions, cancellationToken)
                 ?? new List<LegacyUserData>();
-            var polls = await ReadAsync<List<LegacyPollData>>(pollsPath, jsonOptions, cancellationToken)
+            var polls = await ReadFirstAvailableAsync<List<LegacyPollData>>(
+                "poll_snapshot.json", jsonOptions, cancellationToken)
                 ?? new List<LegacyPollData>();
 
             if (users.Count == 0 && polls.Count == 0)
@@ -113,7 +113,10 @@ namespace PollSystem.Data
             await transaction.CommitAsync(cancellationToken);
         }
 
-        private string? FindLegacyFile(string fileName)
+        private async Task<T?> ReadFirstAvailableAsync<T>(
+            string fileName,
+            JsonSerializerOptions options,
+            CancellationToken cancellationToken)
         {
             var candidates = new[]
             {
@@ -121,19 +124,26 @@ namespace PollSystem.Data
                 Path.Combine(_contentRoot, "backend", fileName)
             };
 
-            return candidates.FirstOrDefault(File.Exists);
-        }
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    await using var stream = new FileStream(
+                        candidate, FileMode.Open, FileAccess.Read, FileShare.Read,
+                        bufferSize: 4096, FileOptions.Asynchronous);
+                    return await JsonSerializer.DeserializeAsync<T>(stream, options, cancellationToken);
+                }
+                catch (FileNotFoundException)
+                {
+                    // Try the next supported legacy-file location.
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // Try the next supported legacy-file location.
+                }
+            }
 
-        private static async Task<T?> ReadAsync<T>(
-            string? path,
-            JsonSerializerOptions options,
-            CancellationToken cancellationToken)
-        {
-            if (path is null)
-                return default;
-
-            await using var stream = File.OpenRead(path);
-            return await JsonSerializer.DeserializeAsync<T>(stream, options, cancellationToken);
+            return default;
         }
 
         private static IEnumerable<LegacyVoteData> GetLegacyVotes(LegacyPollData poll)

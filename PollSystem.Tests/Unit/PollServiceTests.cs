@@ -237,7 +237,11 @@ namespace PollSystem.Tests.Unit
         [Fact]
         public async Task EnsureDailyQuestionAsync_CreatesOnlyWhenNoneExistsToday()
         {
-            _pollRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Poll>());
+            _pollRepo.Setup(r => r.ProjectWhereAsync(
+                    It.IsAny<System.Linq.Expressions.Expression<Func<Poll, bool>>>(),
+                    It.IsAny<System.Linq.Expressions.Expression<Func<Poll, DateTime>>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<DateTime>());
 
             await _sut.EnsureDailyQuestionAsync();
 
@@ -249,7 +253,11 @@ namespace PollSystem.Tests.Unit
                 IsDailyChallenge = true,
                 CreatedAt = DateTime.UtcNow
             };
-            _pollRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Poll> { existingDaily });
+            _pollRepo.Setup(r => r.ProjectWhereAsync(
+                    It.IsAny<System.Linq.Expressions.Expression<Func<Poll, bool>>>(),
+                    It.IsAny<System.Linq.Expressions.Expression<Func<Poll, DateTime>>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<DateTime> { existingDaily.CreatedAt });
 
             await _sut.EnsureDailyQuestionAsync();
 
