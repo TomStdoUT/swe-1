@@ -17,7 +17,7 @@ namespace PollSystem.Services
             _logger = logger;
         }
 
-protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {

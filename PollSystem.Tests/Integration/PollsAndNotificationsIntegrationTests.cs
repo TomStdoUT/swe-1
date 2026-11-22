@@ -175,5 +175,41 @@ namespace PollSystem.Tests.Integration
             Assert.Equal(voterUsername, resolvedVote.GetProperty("username").GetString());
             Assert.True(resolvedVote.GetProperty("wasCorrect").GetBoolean());
         }
+
+        [Fact]
+        public async Task Vote_InsufficientPoints_HandledByPollDomainExceptionFilter()
+        {
+            var (client, _, _) = await RegisterAuthenticatedUserAsync("domn");
+            var question = $"Domain Exception Test {Guid.NewGuid():N}";
+
+            var createResponse = await client.PostAsJsonAsync("/api/polls", new
+            {
+                question,
+                category = "Technology",
+                tags = new[] { "domain" },
+                options = new[] { "Yes", "No" },
+                durationSeconds = 300,
+                allowMultiple = false
+            });
+            createResponse.EnsureSuccessStatusCode();
+
+            var feed = await client.GetFromJsonAsync<JsonElement>("/api/polls");
+            var pollId = feed.EnumerateArray()
+                .First(p => p.GetProperty("question").GetString() == question)
+                .GetProperty("id").GetGuid();
+
+            var voteResponse = await client.PostAsJsonAsync($"/api/polls/{pollId}/vote", new
+            {
+                optionIndices = new[] { 0 },
+                bettedPoints = 500
+            });
+
+            Assert.Equal(HttpStatusCode.BadRequest, voteResponse.StatusCode);
+
+            var errorPayload = await voteResponse.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("Insufficient points balance.", errorPayload.GetProperty("error").GetString());
+            Assert.Equal("INSUFFICIENT_POINTS", errorPayload.GetProperty("errorCode").GetString());
+            Assert.Equal(pollId, errorPayload.GetProperty("pollId").GetGuid());
+        }
     }
 }
