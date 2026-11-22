@@ -29,6 +29,9 @@ namespace PollSystem.Models.Entities
             if (IsClosed())
                 throw new PollDomainException("Cannot boost a closed poll.", "POLL_CLOSED", Id);
 
+            if (IsDailyChallenge)
+                throw new PollDomainException("Daily challenges cannot be boosted.", "DAILY_CHALLENGE_CANNOT_BE_BOOSTED", Id);
+
             if (IsBoosted)
                 throw new PollDomainException("This poll is already boosted.", "POLL_ALREADY_BOOSTED", Id);
 

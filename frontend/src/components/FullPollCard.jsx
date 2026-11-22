@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { TimerAndProgress } from './TimerAndProgress';
 
-export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished }) {
+export function FullPollCard({ poll, onVote, onDelete, onBoosted, userId, onPollFinished }) {
   const existingVote = poll.votes && poll.votes.length > 0 ? poll.votes[0] : null;
   const [selectedOptions, setSelectedOptions] = useState(existingVote ? existingVote.optionIndices : []);
   const [bet, setBet] = useState(existingVote ? existingVote.bettedPoints : 0);
   const [hasVoted, setHasVoted] = useState(!!existingVote);
   const [isVoting, setIsVoting] = useState(false);
+  const [isBoosted, setIsBoosted] = useState(!!poll.isBoosted);
+  const [isBoosting, setIsBoosting] = useState(false);
 
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState(poll.comments || []);
@@ -18,8 +20,36 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
     setSelectedOptions(currentVote ? currentVote.optionIndices : []);
     setBet(currentVote ? currentVote.bettedPoints : 0);
     setHasVoted(!!currentVote);
+    setIsBoosted(!!poll.isBoosted);
     setComments(poll.comments || []);
   }, [poll]);
+
+  const handleBoost = async () => {
+    if (isClosed || isBoosted || isBoosting || poll.isDailyChallenge) return;
+
+    setIsBoosting(true);
+    try {
+      const response = await fetch(`/api/polls/${poll.id}/boost`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionStorage.getItem('poll-token')}`
+        },
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert(data.error || 'Failed to boost poll.');
+        return;
+      }
+
+      setIsBoosted(true);
+      if (onBoosted) onBoosted();
+    } catch {
+      alert('Error boosting poll.');
+    } finally {
+      setIsBoosting(false);
+    }
+  };
 
   const handleAddComment = async (e) => {
     e.preventDefault();
@@ -103,8 +133,14 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
     setIsVoting(false);
   };
 
+  const cardBorder = poll.isDailyChallenge
+    ? '2px solid var(--accent)'
+    : isBoosted
+      ? '2px solid #f59e0b'
+      : '1px solid var(--border)';
+
   return (
-    <div style={{ border: poll.isDailyChallenge ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>      
+    <div style={{ border: cardBorder, borderRadius: '8px', padding: '24px', marginBottom: '24px', background: 'var(--bg)', textAlign: 'left', position: 'relative' }}>      
       {poll.creatorId === userId && (
         <button
           onClick={() => onDelete(poll.id)}
@@ -114,9 +150,18 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
         </button>
       )}
 
-      {poll.isDailyChallenge && (
-        <div style={{ display: 'inline-block', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px', marginBottom: '8px' }}>
-          ★ Daily Challenge • 2x Points
+      {(poll.isDailyChallenge || isBoosted) && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+          {poll.isDailyChallenge && (
+            <span style={{ display: 'inline-block', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px' }}>
+              ★ Daily Challenge • 2x Points
+            </span>
+          )}
+          {isBoosted && (
+            <span style={{ display: 'inline-block', background: '#f59e0b', color: '#fff', fontSize: '12px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px' }}>
+              ⚡ Boosted
+            </span>
+          )}
         </div>
       )}
       
@@ -153,7 +198,7 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
         <input 
           type="number" 
           min="0" 
@@ -177,6 +222,24 @@ export function FullPollCard({ poll, onVote, onDelete, userId, onPollFinished })
         >
           {hasVoted ? 'Vote accepted' : 'Vote'}
         </button>
+        {!isClosed && !isBoosted && !poll.isDailyChallenge && (
+          <button
+            type="button"
+            onClick={handleBoost}
+            disabled={isBoosting}
+            style={{
+              padding: '8px 16px',
+              background: '#f59e0b',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              fontWeight: 'bold',
+              cursor: isBoosting ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isBoosting ? 'Boosting...' : 'Boost Poll (30 pts)'}
+          </button>
+        )}
       </div>
 
       {isClosed && !poll.isResolved && hasVoted && (
