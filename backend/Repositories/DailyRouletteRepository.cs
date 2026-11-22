@@ -5,25 +5,17 @@ using PollSystem.Repositories.Interfaces;
 
 namespace PollSystem.Repositories
 {
-    public sealed class DailyRouletteRepository : IDailyRouletteRepository
+    public sealed class DailyRouletteRepository : RepositoryBase<DailyRouletteSpin>, IDailyRouletteRepository
     {
-        private readonly AppDbContext _db;
-
-        public DailyRouletteRepository(AppDbContext db)
+        public DailyRouletteRepository(AppDbContext dbContext) : base(dbContext)
         {
-            _db = db;
-        }
-
-        public void Add(DailyRouletteSpin spin)
-        {
-            _db.DailyRouletteSpins.Add(spin);
         }
 
         public async Task<DailyRouletteSpin?> GetLatestByUserIdAsync(
             Guid userId,
             CancellationToken cancellationToken = default)
         {
-            return await _db.DailyRouletteSpins
+            return await DbSet
                 .Where(spin => spin.UserId == userId)
                 .OrderByDescending(spin => spin.SpunAtUtc)
                 .FirstOrDefaultAsync(cancellationToken);

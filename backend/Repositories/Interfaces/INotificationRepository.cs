@@ -2,9 +2,8 @@ using PollSystem.Models.Entities;
 
 namespace PollSystem.Repositories.Interfaces
 {
-    public interface INotificationRepository
+    public interface INotificationRepository : IRepository<Notification>
     {
-        void Add(Notification notification);
         Task<IEnumerable<Notification>> GetByUserIdAsync(Guid targetUserId);
     }
 }

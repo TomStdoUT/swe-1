@@ -2,9 +2,8 @@ using PollSystem.Models.Entities;
 
 namespace PollSystem.Repositories.Interfaces
 {
-    public interface IDailyRouletteRepository
+    public interface IDailyRouletteRepository : IRepository<DailyRouletteSpin>
     {
-        void Add(DailyRouletteSpin spin);
         Task<DailyRouletteSpin?> GetLatestByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     }
 }

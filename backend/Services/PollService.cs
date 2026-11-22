@@ -202,8 +202,10 @@ namespace PollSystem.Services
         public async Task EnsureDailyQuestionAsync()
         {
             var localNow = DateTime.Now;
-            var polls = await _pollRepo.GetAllAsync();
-            bool exists = polls.Any(p => p.IsDailyChallenge && p.CreatedAt.ToLocalTime().Date == localNow.Date);
+            var dailyChallengeDates = await _pollRepo.ProjectWhereAsync(
+                p => p.IsDailyChallenge,
+                p => p.CreatedAt);
+            bool exists = dailyChallengeDates.Any(createdAt => createdAt.ToLocalTime().Date == localNow.Date);
             if (exists) return;
 
             var questions = new[]
