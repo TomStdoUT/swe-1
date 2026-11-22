@@ -2,12 +2,10 @@ using PollSystem.Models.Entities;
 
 namespace PollSystem.Repositories.Interfaces
 {
-    public interface IUserRepository
+    public interface IUserRepository : IRepository<User>
     {
-        void Add(User user);
         void AddCosmetic(UserCosmetic cosmetic);
         Task<User?> FindByUsernameAsync(string? username);
-        Task<User?> FindByIdAsync(Guid id);
         Task<IEnumerable<User>> GetAllAsync();
     }
 }

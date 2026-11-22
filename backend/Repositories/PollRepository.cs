@@ -5,16 +5,14 @@ using PollSystem.Repositories.Interfaces;
 
 namespace PollSystem.Repositories
 {
-    public sealed class PollRepository : IPollRepository
+    public sealed class PollRepository : RepositoryBase<Poll>, IPollRepository
     {
-        private readonly AppDbContext _db;
-
-        public PollRepository(AppDbContext db)
+        public PollRepository(AppDbContext dbContext) : base(dbContext)
         {
-            _db = db;
         }
 
         public async Task<IEnumerable<Poll>> GetAllAsync() => await QueryPolls().ToListAsync();
+
         public async Task<IEnumerable<Poll>> GetClosedPollsAsync()
         {
             return await QueryPolls()
@@ -24,7 +22,7 @@ namespace PollSystem.Repositories
 
         public async Task<IEnumerable<Poll>> GetUnresolvedClosedPollsAsync()
         {
-            return await _db.Polls
+            return await DbContext.Polls
                 .Include(p => p.Votes).ThenInclude(v => v.Selections)
                 .Where(p => p.ClosingTime <= DateTime.UtcNow && !p.IsResolved)
                 .ToListAsync();
@@ -32,15 +30,14 @@ namespace PollSystem.Repositories
 
         public async Task<Poll?> GetByIdAsync(Guid id) => await QueryPolls().FirstOrDefaultAsync(poll => poll.Id == id);
 
-        public void Add(Poll poll) => _db.Polls.Add(poll);
+        public override async Task<Poll?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            await QueryPolls().FirstOrDefaultAsync(poll => poll.Id == id, cancellationToken);
 
-        public void AddVote(Vote vote) => _db.Votes.Add(vote);
+        public void AddVote(Vote vote) => DbContext.Votes.Add(vote);
 
-        public void AddComment(Comment comment) => _db.Comments.Add(comment);
+        public void AddComment(Comment comment) => DbContext.Comments.Add(comment);
 
-        public void Remove(Poll poll) => _db.Polls.Remove(poll);
-
-        private IQueryable<Poll> QueryPolls() => _db.Polls
+        private IQueryable<Poll> QueryPolls() => DbContext.Polls
             .Include(poll => poll.Options)
             .Include(poll => poll.Tags)
             .Include(poll => poll.Votes)

@@ -5,18 +5,13 @@ using PollSystem.Repositories.Interfaces;
 
 namespace PollSystem.Repositories
 {
-    public sealed class UserRepository : IUserRepository
+    public sealed class UserRepository : RepositoryBase<User>, IUserRepository
     {
-        private readonly AppDbContext _db;
-
-        public UserRepository(AppDbContext db)
+        public UserRepository(AppDbContext dbContext) : base(dbContext)
         {
-            _db = db;
         }
 
-        public void Add(User user) => _db.Users.Add(user);
-
-        public void AddCosmetic(UserCosmetic cosmetic) => _db.UserCosmetics.Add(cosmetic);
+        public void AddCosmetic(UserCosmetic cosmetic) => DbContext.UserCosmetics.Add(cosmetic);
 
         public async Task<User?> FindByUsernameAsync(string? username)
         {
@@ -26,7 +21,8 @@ namespace PollSystem.Repositories
             return await QueryUsers().FirstOrDefaultAsync(user => user.Username == username.Trim());
         }
 
-        public async Task<User?> FindByIdAsync(Guid id) => await QueryUsers().FirstOrDefaultAsync(user => user.Id == id);
+        public override async Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            await QueryUsers().FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
 
         public async Task<IEnumerable<User>> GetAllAsync() => await QueryUsers()
             .Include(user => user.Followers)
@@ -34,7 +30,7 @@ namespace PollSystem.Repositories
             .AsSplitQuery()
             .ToListAsync();
 
-        private IQueryable<User> QueryUsers() => _db.Users
+        private IQueryable<User> QueryUsers() => DbContext.Users
             .Include(user => user.Following)
             .Include(user => user.Cosmetics);
     }
