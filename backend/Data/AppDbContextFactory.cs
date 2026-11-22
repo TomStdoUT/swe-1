@@ -8,7 +8,8 @@ namespace PollSystem.Data
         public AppDbContext CreateDbContext(string[] args)
         {
             var currentDirectory = Directory.GetCurrentDirectory();
-            var backendDirectory = File.Exists(Path.Combine(currentDirectory, "swe-1.csproj"))
+            var backendDirectory = Path.GetFileName(currentDirectory)
+                .Equals("backend", StringComparison.OrdinalIgnoreCase)
                 ? currentDirectory
                 : Path.Combine(currentDirectory, "backend");
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
