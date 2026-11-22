@@ -14,6 +14,7 @@ namespace PollSystem.Models.Entities
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
         public bool AllowMultiple { get; set; }
         public bool IsDailyChallenge { get; set; }
+        public bool IsBoosted { get; set; }
         public bool NotificationsGenerated { get; set; } = false;
         public bool IsResolved { get; set; }
 
@@ -22,6 +23,24 @@ namespace PollSystem.Models.Entities
         public List<Vote> Votes { get; set; } = new();
 
         public bool IsClosed() => DateTime.UtcNow >= ClosingTime;
+
+        public void Boost(User user, int cost)
+        {
+            if (IsClosed())
+                throw new PollDomainException("Cannot boost a closed poll.", "POLL_CLOSED", Id);
+
+            if (IsBoosted)
+                throw new PollDomainException("This poll is already boosted.", "POLL_ALREADY_BOOSTED", Id);
+
+            if (cost <= 0)
+                throw new ArgumentOutOfRangeException(nameof(cost), "Boost cost must be positive.");
+
+            if (user.PointsBalance < cost)
+                throw new PollDomainException("Insufficient points balance.", "INSUFFICIENT_POINTS", Id);
+
+            user.PointsBalance -= cost;
+            IsBoosted = true;
+        }
 
         public void CastVote(User user, Vote vote)
         {
