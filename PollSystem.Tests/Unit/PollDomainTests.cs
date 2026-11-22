@@ -141,6 +141,87 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
+        public void Boost_ActiveUnboostedPollWithEnoughPoints_DeductsPointsAndMarksBoosted()
+        {
+            var user = new User("alice", "hash", 100);
+            var poll = new Poll
+            {
+                ClosingTime = DateTime.UtcNow.AddHours(1)
+            };
+
+            poll.Boost(user, 30);
+
+            Assert.True(poll.IsBoosted);
+            Assert.Equal(70, user.PointsBalance);
+        }
+
+        [Fact]
+        public void Boost_ClosedPoll_ThrowsPollDomainException()
+        {
+            var user = new User("alice", "hash", 100);
+            var poll = new Poll
+            {
+                ClosingTime = DateTime.UtcNow.AddMinutes(-1)
+            };
+
+            var ex = Assert.Throws<PollDomainException>(() => poll.Boost(user, 30));
+
+            Assert.Equal("POLL_CLOSED", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
+            Assert.Equal(100, user.PointsBalance);
+        }
+
+        [Fact]
+        public void Boost_DailyChallengePoll_ThrowsPollDomainException()
+        {
+            var user = new User("alice", "hash", 100);
+            var poll = new Poll
+            {
+                ClosingTime = DateTime.UtcNow.AddHours(1),
+                IsDailyChallenge = true
+            };
+
+            var ex = Assert.Throws<PollDomainException>(() => poll.Boost(user, 30));
+
+            Assert.Equal("DAILY_CHALLENGE_CANNOT_BE_BOOSTED", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
+            Assert.Equal(100, user.PointsBalance);
+        }
+
+        [Fact]
+        public void Boost_AlreadyBoostedPoll_ThrowsPollDomainException()
+        {
+            var user = new User("alice", "hash", 100);
+            var poll = new Poll
+            {
+                ClosingTime = DateTime.UtcNow.AddHours(1),
+                IsBoosted = true
+            };
+
+            var ex = Assert.Throws<PollDomainException>(() => poll.Boost(user, 30));
+
+            Assert.Equal("POLL_ALREADY_BOOSTED", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
+            Assert.Equal(100, user.PointsBalance);
+        }
+
+        [Fact]
+        public void Boost_InsufficientPoints_ThrowsPollDomainException()
+        {
+            var user = new User("alice", "hash", 20);
+            var poll = new Poll
+            {
+                ClosingTime = DateTime.UtcNow.AddHours(1)
+            };
+
+            var ex = Assert.Throws<PollDomainException>(() => poll.Boost(user, 30));
+
+            Assert.Equal("INSUFFICIENT_POINTS", ex.ErrorCode);
+            Assert.Equal(poll.Id, ex.PollId);
+            Assert.Equal(20, user.PointsBalance);
+        }
+
+        [Fact]
         public void Resolve_PollNotClosed_ThrowsPollDomainException()
         {
             var poll = new Poll

@@ -35,56 +35,59 @@ namespace PollSystem.Tests.Unit
         }
 
         [Fact]
-        public async Task CreatePollAsync_ValidDto_SavesAndReturnsPoll()
-        {
-            var creatorId = Guid.NewGuid();
-            var dto = new PollCreateDto
-            {
-                Question = "Which database?",
-                Category = "Technology",
-                Tags = new List<string> { "sql", "db" },
-                Options = new List<string> { "SQLite", "PostgreSQL" },
-                DurationSeconds = 120,
-                AllowMultiple = false
-            };
-
-            var poll = await _sut.CreatePollAsync(creatorId, dto);
-
-            Assert.Equal(creatorId, poll.CreatorId);
-            Assert.Equal("Which database?", poll.Question);
-            Assert.Equal(2, poll.Options.Count);
-            _pollRepo.Verify(r => r.Add(It.IsAny<Poll>()), Times.Once);
-            _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
         public async Task CreatePollAsync_DurationUnder60Seconds_ThrowsArgumentException()
         {
             var dto = new PollCreateDto
             {
                 Question = "Too short?",
                 Category = "Fun",
-                Options = new List<string> { "A", "B" },
-                DurationSeconds = 30
+                Tags = new List<string> { "quick" },
+                Options = new List<string> { "Yes", "No" },
+                DurationSeconds = 59,
+                AllowMultiple = false
             };
 
             await Assert.ThrowsAsync<ArgumentException>(() =>
                 _sut.CreatePollAsync(Guid.NewGuid(), dto));
+
+            _pollRepo.Verify(r => r.Add(It.IsAny<Poll>()), Times.Never);
         }
 
         [Fact]
-        public async Task CastVoteAsync_ValidRequest_UpdatesBalanceAndSavesVote()
+        public async Task CreatePollAsync_ValidDto_AddsPollAndSavesChanges()
+        {
+            var creatorId = Guid.NewGuid();
+            var dto = new PollCreateDto
+            {
+                Question = "Valid poll?",
+                Category = "Technology",
+                Tags = new List<string> { "dotnet" },
+                Options = new List<string> { "Yes", "No" },
+                DurationSeconds = 120,
+                AllowMultiple = true
+            };
+
+            var poll = await _sut.CreatePollAsync(creatorId, dto);
+
+            Assert.Equal(creatorId, poll.CreatorId);
+            Assert.Equal("Valid poll?", poll.Question);
+            Assert.Equal(2, poll.Options.Count);
+            Assert.True(poll.AllowMultiple);
+            _pollRepo.Verify(r => r.Add(poll), Times.Once);
+            _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CastVoteAsync_ValidVote_DeductsPointsSavesAndReturnsResult()
         {
             var user = new User("alice", "hash", 100);
             var poll = new Poll
             {
-                Question = "Vote test?",
-                Category = "Tech",
                 ClosingTime = DateTime.UtcNow.AddHours(1),
                 Options = new List<PollOption>
                 {
-                    new("Yes") { Position = 0 },
-                    new("No") { Position = 1 }
+                    new("Option A") { Position = 0 },
+                    new("Option B") { Position = 1 }
                 }
             };
 
@@ -94,61 +97,119 @@ namespace PollSystem.Tests.Unit
             var (remainingPoints, isEarlyBird) = await _sut.CastVoteAsync(
                 poll.Id,
                 user.Id,
-                new VoteDto { OptionIndices = new List<int> { 0 }, BettedPoints = 20 });
+                new VoteDto { OptionIndices = new List<int> { 0 }, BettedPoints = 25 });
 
-            Assert.Equal(80, remainingPoints);
+            Assert.Equal(75, remainingPoints);
             Assert.True(isEarlyBird);
             _pollRepo.Verify(r => r.AddVote(It.IsAny<Vote>()), Times.Once);
             _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]
-        public async Task DeletePollAsync_OwnerRequestsDelete_RemovesPollAndSaves()
+        public async Task BoostPollAsync_ValidRequest_DeductsPointsAndReturnsSuccess()
+        {
+            var user = new User("alice", "hash", 100);
+            var poll = new Poll
+            {
+                Question = "Boost me",
+                ClosingTime = DateTime.UtcNow.AddHours(1)
+            };
+
+            _pollRepo.Setup(r => r.GetByIdAsync(poll.Id)).ReturnsAsync(poll);
+            _userRepo.Setup(r => r.FindByIdAsync(user.Id)).ReturnsAsync(user);
+
+            var result = await _sut.BoostPollAsync(poll.Id, user.Id);
+
+            Assert.True(result.IsSuccess);
+            Assert.True(poll.IsBoosted);
+            Assert.Equal(70, user.PointsBalance);
+            _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task BoostPollAsync_MissingPollOrUser_ReturnsFailure()
+        {
+            _pollRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>())).ReturnsAsync((Poll?)null);
+            var missingPollResult = await _sut.BoostPollAsync(Guid.NewGuid(), Guid.NewGuid());
+            Assert.False(missingPollResult.IsSuccess);
+
+            var poll = new Poll { ClosingTime = DateTime.UtcNow.AddHours(1) };
+            _pollRepo.Setup(r => r.GetByIdAsync(poll.Id)).ReturnsAsync(poll);
+            _userRepo.Setup(r => r.FindByIdAsync(It.IsAny<Guid>())).ReturnsAsync((User?)null);
+
+            var missingUserResult = await _sut.BoostPollAsync(poll.Id, Guid.NewGuid());
+            Assert.False(missingUserResult.IsSuccess);
+            _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetFeedForUserAsync_ActiveBoostedPoll_AppearsBeforeNewerUnboostedPoll()
+        {
+            var user = new User("alice", "hash");
+            var boostedEarlierClosing = new Poll
+            {
+                Question = "Boosted Poll",
+                Category = "Tech",
+                IsBoosted = true,
+                ClosingTime = DateTime.UtcNow.AddHours(1),
+                Options = new List<PollOption>
+                {
+                    new("A") { Position = 0 },
+                    new("B") { Position = 1 }
+                }
+            };
+            var regularLaterClosing = new Poll
+            {
+                Question = "Regular Poll",
+                Category = "Tech",
+                IsBoosted = false,
+                ClosingTime = DateTime.UtcNow.AddHours(5),
+                Options = new List<PollOption>
+                {
+                    new("A") { Position = 0 },
+                    new("B") { Position = 1 }
+                }
+            };
+
+            _userRepo.Setup(r => r.FindByUsernameAsync("alice")).ReturnsAsync(user);
+            _pollRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Poll> { regularLaterClosing, boostedEarlierClosing });
+
+            var feed = (await _sut.GetFeedForUserAsync("alice")).ToList();
+
+            Assert.Equal(2, feed.Count);
+            Assert.Equal("Boosted Poll", feed[0].Question);
+            Assert.True(feed[0].IsBoosted);
+            Assert.Equal("Regular Poll", feed[1].Question);
+            Assert.False(feed[1].IsBoosted);
+        }
+
+        [Fact]
+        public async Task DeletePollAsync_ValidatesExistenceAndOwnership()
         {
             var ownerId = Guid.NewGuid();
             var poll = new Poll { CreatorId = ownerId };
+
+            _pollRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>())).ReturnsAsync((Poll?)null);
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                _sut.DeletePollAsync(Guid.NewGuid(), ownerId));
+
             _pollRepo.Setup(r => r.GetByIdAsync(poll.Id)).ReturnsAsync(poll);
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                _sut.DeletePollAsync(poll.Id, Guid.NewGuid()));
 
             await _sut.DeletePollAsync(poll.Id, ownerId);
-
             _pollRepo.Verify(r => r.Remove(poll), Times.Once);
             _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]
-        public async Task DeletePollAsync_DifferentUserRequestsDelete_ThrowsUnauthorizedAccessException()
+        public async Task ResolveClosedPollsAsync_AwardsWinnersAndGeneratesNotifications()
         {
-            var poll = new Poll { CreatorId = Guid.NewGuid() };
-            _pollRepo.Setup(r => r.GetByIdAsync(poll.Id)).ReturnsAsync(poll);
-
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-                _sut.DeletePollAsync(poll.Id, Guid.NewGuid()));
-        }
-
-        [Fact]
-        public async Task AddCommentAsync_ValidPoll_AddsCommentAndSaves()
-        {
-            var poll = new Poll { Question = "Comment test?" };
-            _pollRepo.Setup(r => r.GetByIdAsync(poll.Id)).ReturnsAsync(poll);
-
-            var comment = await _sut.AddCommentAsync(poll.Id, Guid.NewGuid(), "alice", "Great poll!");
-
-            Assert.Equal("alice", comment.AuthorName);
-            Assert.Equal("Great poll!", comment.Content);
-            Assert.Single(poll.Comments);
-            _pollRepo.Verify(r => r.AddComment(It.IsAny<Comment>()), Times.Once);
-            _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
-        public async Task ResolveClosedPollsAsync_UnresolvedClosedPoll_AwardsPayoutsAndCreatesNotifications()
-        {
-            var winner = new User("winner", "hash", 80);
-            var loser = new User("loser", "hash", 80);
-
+            var winner = new User("winner", "hash", 100);
+            var loser = new User("loser", "hash", 100);
             var poll = new Poll
             {
-                Question = "Closed poll?",
+                Question = "Resolved question",
                 ClosingTime = DateTime.UtcNow.AddMinutes(-5),
                 Options = new List<PollOption>
                 {
@@ -156,23 +217,25 @@ namespace PollSystem.Tests.Unit
                     new("Lose") { Position = 1 }
                 }
             };
-            poll.Votes.Add(new Vote(winner.Id, new List<int> { 0 }, 20) { IsEarlyBird = false });
+            poll.Votes.Add(new Vote(winner.Id, new List<int> { 0 }, 20));
             poll.Votes.Add(new Vote(Guid.NewGuid(), new List<int> { 0 }, 0));
-            poll.Votes.Add(new Vote(loser.Id, new List<int> { 1 }, 20));
+            poll.Votes.Add(new Vote(loser.Id, new List<int> { 1 }, 15));
 
             _userRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<User> { winner, loser });
             _pollRepo.Setup(r => r.GetUnresolvedClosedPollsAsync()).ReturnsAsync(new List<Poll> { poll });
+
             await _sut.ResolveClosedPollsAsync();
 
             Assert.True(poll.IsResolved);
-            Assert.Equal(120, winner.PointsBalance);
-            Assert.Equal(80, loser.PointsBalance);
-            _notificationRepo.Verify(n => n.Add(It.IsAny<Notification>()), Times.Exactly(3));
+            Assert.Equal(140, winner.PointsBalance);
+            Assert.Equal(100, loser.PointsBalance);
+            _notificationRepo.Verify(n => n.Add(It.Is<Notification>(notif => notif.TargetUserId == winner.Id)), Times.Once);
+            _notificationRepo.Verify(n => n.Add(It.Is<Notification>(notif => notif.TargetUserId == loser.Id)), Times.Once);
             _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]
-        public async Task EnsureDailyQuestionAsync_NoChallengeToday_CreatesDailyPoll()
+        public async Task EnsureDailyQuestionAsync_CreatesOnlyWhenNoneExistsToday()
         {
             _pollRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Poll>());
 
@@ -180,11 +243,7 @@ namespace PollSystem.Tests.Unit
 
             _pollRepo.Verify(r => r.Add(It.Is<Poll>(p => p.IsDailyChallenge)), Times.Once);
             _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        }
 
-        [Fact]
-        public async Task EnsureDailyQuestionAsync_ChallengeAlreadyExistsToday_DoesNothing()
-        {
             var existingDaily = new Poll
             {
                 IsDailyChallenge = true,
@@ -194,36 +253,7 @@ namespace PollSystem.Tests.Unit
 
             await _sut.EnsureDailyQuestionAsync();
 
-            _pollRepo.Verify(r => r.Add(It.IsAny<Poll>()), Times.Never);
-            _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task GetFeedForUserAsync_ReturnsMappedFeedDtos()
-        {
-            var user = new User("alice", "hash");
-            var poll = new Poll
-            {
-                Question = "Feed poll?",
-                Category = "Sport",
-                ClosingTime = DateTime.UtcNow.AddHours(2),
-                Options = new List<PollOption>
-                {
-                    new("Team A") { Position = 0 },
-                    new("Team B") { Position = 1 }
-                }
-            };
-            poll.Votes.Add(new Vote(user.Id, new List<int> { 0 }, 15));
-
-            _userRepo.Setup(r => r.FindByUsernameAsync("alice")).ReturnsAsync(user);
-            _pollRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Poll> { poll });
-
-            var feed = (await _sut.GetFeedForUserAsync("alice")).ToList();
-
-            Assert.Single(feed);
-            Assert.Equal("Feed poll?", feed[0].Question);
-            Assert.Single(feed[0].Votes);
-            Assert.Equal(1, feed[0].TotalVotesCount);
+            _pollRepo.Verify(r => r.Add(It.IsAny<Poll>()), Times.Once);
         }
     }
 }

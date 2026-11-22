@@ -11,6 +11,7 @@ namespace PollSystem.Models.DTOs
         DateTime CreatedAt,
         bool AllowMultiple,
         bool IsDailyChallenge,
+        bool IsBoosted,
         bool IsResolved,
         List<CommentDto> Comments,
         List<int> WinningOptions,

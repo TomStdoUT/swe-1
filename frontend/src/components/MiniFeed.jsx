@@ -42,7 +42,17 @@ export function MiniFeed({ onNavigate, refreshTrigger, userId }) {
       </div>
       <div style={{ flex: 1, overflowY: 'auto', maxHeight: '75vh', paddingRight: '10px' }}>
         {polls.map(poll => (
-          <div key={poll.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', marginBottom: '16px', position: 'relative' }}>
+          <div
+            key={poll.id}
+            style={{
+              border: poll.isBoosted ? '2px solid #f59e0b' : '1px solid var(--border)',
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '16px',
+              position: 'relative',
+              textAlign: 'left'
+            }}
+          >
             {poll.creatorId === userId && (
               <button
                 onClick={() => handleDelete(poll.id)}
@@ -50,6 +60,11 @@ export function MiniFeed({ onNavigate, refreshTrigger, userId }) {
               >
                 Delete
               </button>
+            )}
+            {poll.isBoosted && (
+              <div style={{ display: 'inline-block', background: '#f59e0b', color: '#fff', fontSize: '11px', fontWeight: 'bold', padding: '2px 7px', borderRadius: '4px', marginBottom: '6px' }}>
+                ⚡ Boosted
+              </div>
             )}
             <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', paddingRight: '50px' }}>{poll.question}</h3>
             <TimerAndProgress createdAt={poll.createdAt} closingTime={poll.closingTime} />

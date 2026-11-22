@@ -123,6 +123,9 @@ namespace swe_1.Data.Migrations
                     b.Property<Guid>("CreatorId")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsBoosted")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsDailyChallenge")
                         .HasColumnType("INTEGER");
 

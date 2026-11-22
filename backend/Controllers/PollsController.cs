@@ -109,5 +109,30 @@ namespace PollSystem.Controllers
                 return NotFound(new { error = ex.Message });
             }
         }
+
+        [Authorize]
+        [HttpPost("{id}/boost")]
+        public async Task<IActionResult> BoostPoll(Guid id)
+        {
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+                return Unauthorized();
+
+            var result = await _pollService.BoostPollAsync(id, userId);
+
+            return await result.Map<Task<IActionResult>>(
+                async boostedPoll =>
+                {
+                    var profile = await _userService.GetUserProfileAsync(userId);
+                    return Ok(new
+                    {
+                        message = "Poll boosted!",
+                        pollId = boostedPoll.Id,
+                        isBoosted = boostedPoll.IsBoosted,
+                        remainingPoints = profile?.PointsBalance ?? 0
+                    });
+                },
+                error => Task.FromResult<IActionResult>(BadRequest(new { error }))
+            );
+        }
     }
 }
