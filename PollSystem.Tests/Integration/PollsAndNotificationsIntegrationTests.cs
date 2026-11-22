@@ -211,5 +211,83 @@ namespace PollSystem.Tests.Integration
             Assert.Equal("INSUFFICIENT_POINTS", errorPayload.GetProperty("errorCode").GetString());
             Assert.Equal(pollId, errorPayload.GetProperty("pollId").GetGuid());
         }
+
+        [Fact]
+        public async Task BoostPoll_ValidAndDuplicateRequests_UpdatesPointsSortsFeedAndEnforcesDomainRules()
+        {
+            var (client, _, _) = await RegisterAuthenticatedUserAsync("bost");
+            var boostedQuestion = $"Boosted Question {Guid.NewGuid():N}";
+            var laterRegularQuestion = $"Later Regular Question {Guid.NewGuid():N}";
+
+            var firstCreate = await client.PostAsJsonAsync("/api/polls", new
+            {
+                question = boostedQuestion,
+                category = "Technology",
+                tags = new[] { "boost" },
+                options = new[] { "Yes", "No" },
+                durationSeconds = 300,
+                allowMultiple = false
+            });
+            firstCreate.EnsureSuccessStatusCode();
+
+            var secondCreate = await client.PostAsJsonAsync("/api/polls", new
+            {
+                question = laterRegularQuestion,
+                category = "Technology",
+                tags = new[] { "regular" },
+                options = new[] { "Yes", "No" },
+                durationSeconds = 3600,
+                allowMultiple = false
+            });
+            secondCreate.EnsureSuccessStatusCode();
+
+            var initialFeed = await client.GetFromJsonAsync<JsonElement>("/api/polls");
+            var boostedPollId = initialFeed.EnumerateArray()
+                .First(p => p.GetProperty("question").GetString() == boostedQuestion)
+                .GetProperty("id").GetGuid();
+
+            var boostResponse = await client.PostAsync($"/api/polls/{boostedPollId}/boost", null);
+            Assert.Equal(HttpStatusCode.OK, boostResponse.StatusCode);
+
+            var boostPayload = await boostResponse.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.True(boostPayload.GetProperty("isBoosted").GetBoolean());
+            Assert.Equal(70, boostPayload.GetProperty("remainingPoints").GetInt32());
+
+            var updatedFeed = await client.GetFromJsonAsync<JsonElement>("/api/polls");
+            var firstItem = updatedFeed.EnumerateArray().First();
+            Assert.Equal(boostedPollId, firstItem.GetProperty("id").GetGuid());
+            Assert.True(firstItem.GetProperty("isBoosted").GetBoolean());
+
+            var duplicateBoostResponse = await client.PostAsync($"/api/polls/{boostedPollId}/boost", null);
+            Assert.Equal(HttpStatusCode.BadRequest, duplicateBoostResponse.StatusCode);
+
+            var errorPayload = await duplicateBoostResponse.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("POLL_ALREADY_BOOSTED", errorPayload.GetProperty("errorCode").GetString());
+        }
+
+        [Fact]
+        public async Task BoostPoll_DailyChallenge_ReturnsBadRequestWithDomainError()
+        {
+            var (client, _, _) = await RegisterAuthenticatedUserAsync("dlyb");
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var pollService = scope.ServiceProvider.GetRequiredService<IPollService>();
+                await pollService.EnsureDailyQuestionAsync();
+            }
+
+            var feed = await client.GetFromJsonAsync<JsonElement>("/api/polls");
+            var dailyPollId = feed.EnumerateArray()
+                .First(p => p.GetProperty("isDailyChallenge").GetBoolean())
+                .GetProperty("id").GetGuid();
+
+            var boostResponse = await client.PostAsync($"/api/polls/{dailyPollId}/boost", null);
+            Assert.Equal(HttpStatusCode.BadRequest, boostResponse.StatusCode);
+
+            var errorPayload = await boostResponse.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("Daily challenges cannot be boosted.", errorPayload.GetProperty("error").GetString());
+            Assert.Equal("DAILY_CHALLENGE_CANNOT_BE_BOOSTED", errorPayload.GetProperty("errorCode").GetString());
+            Assert.Equal(dailyPollId, errorPayload.GetProperty("pollId").GetGuid());
+        }
     }
 }
