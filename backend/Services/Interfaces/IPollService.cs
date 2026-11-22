@@ -1,3 +1,4 @@
+using PollSystem.Models.Common;
 using PollSystem.Models.DTOs;
 using PollSystem.Models.Entities;
 
@@ -8,6 +9,7 @@ namespace PollSystem.Services.Interfaces
         Task<IEnumerable<PollFeedDto>> GetFeedForUserAsync(string? username);
         Task<Poll> CreatePollAsync(Guid creatorId, PollCreateDto dto);
         Task<(int remainingPoints, bool isEarlyBird)> CastVoteAsync(Guid pollId, Guid userId, VoteDto dto);
+        Task<OperationResult<Poll>> BoostPollAsync(Guid pollId, Guid userId);
         Task DeletePollAsync(Guid pollId, Guid requestingUserId);
         Task<Comment> AddCommentAsync(Guid pollId, Guid authorId, string authorName, string content);
         Task ResolveClosedPollsAsync();

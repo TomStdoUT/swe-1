@@ -1,3 +1,4 @@
+using PollSystem.Models.Common;
 using PollSystem.Models.Entities;
 using PollSystem.Models.DTOs;
 using PollSystem.Repositories.Interfaces;
@@ -7,6 +8,8 @@ namespace PollSystem.Services
 {
     public class PollService : IPollService
     {
+        public const int BoostCost = 30;
+
         private readonly IPollRepository _pollRepo;
         private readonly IUserRepository _userRepo;
         private readonly INotificationRepository _notificationRepo;
@@ -28,7 +31,8 @@ namespace PollSystem.Services
             var polls = await _pollRepo.GetAllAsync();
 
             return polls
-            .OrderByDescending(p => p.ClosingTime)
+            .OrderByDescending(p => p.IsBoosted && !p.IsClosed())
+            .ThenByDescending(p => p.ClosingTime)
             .Select(p => new PollFeedDto(
                 p.Id,
                 p.CreatorId,
@@ -40,6 +44,7 @@ namespace PollSystem.Services
                 p.CreatedAt,
                 p.AllowMultiple,
                 p.IsDailyChallenge,
+                p.IsBoosted,
                 p.IsResolved,
                 p.Comments.Select(c => new CommentDto(c.AuthorName, c.Content, c.CreatedAt)).ToList(),
                 p.IsResolved ? p.GetWinningOptions() : new List<int>(),
@@ -96,6 +101,22 @@ namespace PollSystem.Services
             await _unitOfWork.SaveChangesAsync();
 
             return (user.PointsBalance, processedVote.IsEarlyBird);
+        }
+
+        public async Task<OperationResult<Poll>> BoostPollAsync(Guid pollId, Guid userId)
+        {
+            var poll = await _pollRepo.GetByIdAsync(pollId);
+            if (poll == null)
+                return OperationResult<Poll>.Failure("Poll not found.");
+
+            var user = await _userRepo.FindByIdAsync(userId);
+            if (user == null)
+                return OperationResult<Poll>.Failure("User not found.");
+
+            poll.Boost(user, BoostCost);
+            await _unitOfWork.SaveChangesAsync();
+
+            return OperationResult<Poll>.Success(poll);
         }
 
         public async Task DeletePollAsync(Guid pollId, Guid requestingUserId)
